@@ -11,6 +11,7 @@ const primaryItems: NavItem[] = [
   { label: "情报雷达", href: "/" },
   { label: "信源管理", href: "/sources" },
   { label: "运行日志", href: "/runs" },
+  { label: "简报", href: "/briefs" },
 ];
 
 const systemItems: NavItem[] = [{ label: "设置", href: "/settings" }];

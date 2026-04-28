@@ -2,9 +2,9 @@
 
 ## 执行规则
 
-当前任务 **Milestone 4：热度评分与雷达 UI** 已完成验收。
+当前任务 **Milestone 5：Markdown 简报导出** 已完成验收。
 
-不得开始 Milestone 5。只有当本文档明确把后续 Milestone 标记为 `allowed` 后，才能继续实现。
+不得实现 v0.1 之外的 PDF、Word、国内平台、X、YouTube 真实抓取、评论抽样、多租户或登录态抓取。
 
 ## Milestone 1：工程底座与数据层
 
@@ -89,20 +89,20 @@
 
 ## Milestone 5：Markdown 简报导出
 
-状态：blocked
+状态：completed
 
-- [ ] 实现 `BriefTemplate`
-- [ ] 实现 `BriefExport`
-- [ ] 实现事件勾选
-- [ ] 实现人工点评
-- [ ] 实现 Markdown 预览
-- [ ] 实现 Markdown 下载
-- [ ] 内置 AI/科技 与 投资/产业 两个模板
+- [x] 实现 `BriefTemplate`
+- [x] 实现 `BriefExport`
+- [x] 实现事件勾选
+- [x] 实现人工点评
+- [x] 实现 Markdown 预览
+- [x] 实现 Markdown 下载
+- [x] 内置 AI/科技 与 投资/产业 两个模板
 
 测试标准：
 
-- [ ] 可从事件流选择多个 `EventCluster` 生成简报
-- [ ] Markdown 包含标题、日期、事件摘要、推荐理由、来源引用、人工点评
-- [ ] 内置 AI/科技 与 投资/产业 两个模板
-- [ ] 重新编辑点评后可重新生成 Markdown
-- [ ] 中文内容、长标题、失效链接、空 `Evidence` 都有稳定降级表现
+- [x] 可从事件流选择多个 `EventCluster` 生成简报
+- [x] Markdown 包含标题、日期、事件摘要、推荐理由、来源引用、人工点评
+- [x] 内置 AI/科技 与 投资/产业 两个模板
+- [x] 重新编辑点评后可重新生成 Markdown
+- [x] 中文内容、长标题、失效链接、空 `Evidence` 都有稳定降级表现

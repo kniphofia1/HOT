@@ -53,8 +53,27 @@ export type AiRun = {
   errorMessage: string | null;
 };
 
+export type BriefTemplate = {
+  id: string;
+  name: string;
+  mode: string;
+  sectionsJson: string[];
+  styleRules: string | null;
+};
+
+export type BriefExport = {
+  id: string;
+  templateId: string;
+  title: string;
+  eventClusterIdsJson: string[];
+  manualNotesJson: Record<string, string>;
+  markdown: string;
+  generatedAt: string;
+};
+
 const API_BASE_URL =
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+export const PUBLIC_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -69,6 +88,21 @@ export async function fetchJson<T>(path: string): Promise<T> {
 export async function postJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function postJsonBody<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
     cache: "no-store",
   });
   if (!response.ok) {

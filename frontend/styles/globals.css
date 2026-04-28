@@ -248,6 +248,7 @@ a {
 
 select,
 input,
+textarea,
 button {
   min-height: 38px;
   border-radius: 6px;
@@ -258,9 +259,16 @@ button {
 }
 
 select,
-input {
+input,
+textarea {
   min-width: 128px;
   padding: 0 10px;
+}
+
+textarea {
+  min-height: 92px;
+  padding: 10px;
+  resize: vertical;
 }
 
 button {
@@ -268,6 +276,23 @@ button {
   cursor: pointer;
   background: rgba(32, 214, 208, 0.16);
   color: #cffffb;
+}
+
+.buttonLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(32, 214, 208, 0.28);
+  background: rgba(32, 214, 208, 0.16);
+  color: #cffffb;
+}
+
+.buttonLink.secondary {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: #d6deee;
 }
 
 .secondaryButton {
@@ -394,6 +419,74 @@ button {
   overflow-wrap: anywhere;
 }
 
+.briefLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.briefForm label {
+  display: grid;
+  gap: 6px;
+  color: #aeb8cc;
+}
+
+.briefEventList,
+.exportList {
+  display: grid;
+  gap: 10px;
+}
+
+.briefEventItem {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.checkboxLine {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.checkboxLine input {
+  min-width: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+}
+
+.exportLink {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.exportLink span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.markdownPreview {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #dce7f8;
+  line-height: 1.65;
+}
+
 @media (max-width: 900px) {
   .appShell {
     grid-template-columns: 1fr;
@@ -421,6 +514,10 @@ button {
   }
 
   .logRow {
+    grid-template-columns: 1fr;
+  }
+
+  .briefLayout {
     grid-template-columns: 1fr;
   }
 }
