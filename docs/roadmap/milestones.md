@@ -2,9 +2,9 @@
 
 ## 执行规则
 
-当前只允许执行 **Milestone 1：工程底座与数据层**。
+当前任务 **Milestone 2：连接器与 RawItem 入库** 已完成验收。
 
-不得开始 Milestone 2-5。只有当本文档明确把后续 Milestone 标记为 `allowed` 后，才能继续实现。
+不得开始 Milestone 3-5。只有当本文档明确把后续 Milestone 标记为 `allowed` 后，才能继续实现。
 
 ## Milestone 1：工程底座与数据层
 
@@ -31,25 +31,25 @@
 
 ## Milestone 2：连接器与 RawItem 入库
 
-状态：blocked
+状态：completed
 
-- [ ] 实现 RSS `Connector`
-- [ ] 实现 HN `Connector`
-- [ ] 实现 GitHub repo watch
-- [ ] 实现 GitHub release watch
-- [ ] 实现网页监控 `Connector`
-- [ ] 统一写入 `RawItem`
-- [ ] 统一写入 `FetchRun`
-- [ ] 统一写入 `MetricSnapshot`
-- [ ] 实现单个 `Source` 失败不影响其他 `Source`
+- [x] 实现 RSS `Connector`
+- [x] 实现 HN `Connector`
+- [x] 实现 GitHub repo watch
+- [x] 实现 GitHub release watch
+- [x] 实现网页监控 `Connector`
+- [x] 统一写入 `RawItem`
+- [x] 统一写入 `FetchRun`
+- [x] 统一写入 `MetricSnapshot`
+- [x] 实现单个 `Source` 失败不影响其他 `Source`
 
 测试标准：
 
-- [ ] 3 个真实 RSS 源可解析并去重
-- [ ] HN top/new/best 可抓取指定数量
-- [ ] GitHub repo/release 可检测新增 release 和基础指标
-- [ ] 网页内容不变时不生成重复 `RawItem`，变化时生成 snapshot 和 diff
-- [ ] 任一 `Source` 失败不影响其他 `Source` 抓取
+- [x] 3 个真实 RSS 源可解析并去重
+- [x] HN top/new/best 可抓取指定数量
+- [x] GitHub repo/release 可检测新增 release 和基础指标
+- [x] 网页内容不变时不生成重复 `RawItem`，变化时生成 snapshot 和 diff
+- [x] 任一 `Source` 失败不影响其他 `Source` 抓取
 
 ## Milestone 3：AI 聚类、摘要与 Evidence
 

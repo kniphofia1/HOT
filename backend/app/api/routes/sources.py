@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Source
 from app.db.session import get_db
+from app.services.connector_runner import run_enabled_sources, run_source_fetch
 
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
@@ -59,6 +60,21 @@ class SourceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+class FetchRunRead(BaseModel):
+    id: str
+    source_id: str = Field(alias="sourceId")
+    status: str
+    items_found: int = Field(alias="itemsFound")
+    items_created: int = Field(alias="itemsCreated")
+    error_message: str | None = Field(alias="errorMessage")
+    rate_limit_remaining: int | None = Field(alias="rateLimitRemaining")
+    cost_estimate: int | None = Field(alias="costEstimate")
+    started_at: datetime = Field(alias="startedAt")
+    finished_at: datetime | None = Field(alias="finishedAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
 @router.get("", response_model=list[SourceRead])
 def list_sources(db: Session = Depends(get_db)) -> list[Source]:
     return list(db.scalars(select(Source).order_by(Source.created_at.desc())).all())
@@ -79,6 +95,11 @@ def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> Sourc
     db.commit()
     db.refresh(source)
     return source
+
+
+@router.post("/refresh", response_model=list[FetchRunRead])
+def refresh_enabled_sources(db: Session = Depends(get_db)):
+    return run_enabled_sources(db)
 
 
 @router.get("/{source_id}", response_model=SourceRead)
@@ -114,3 +135,11 @@ def delete_source(source_id: str, db: Session = Depends(get_db)) -> Response:
     db.delete(source)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{source_id}/refresh", response_model=FetchRunRead)
+def refresh_source(source_id: str, db: Session = Depends(get_db)):
+    source = db.get(Source, source_id)
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source not found")
+    return run_source_fetch(db, source)
