@@ -2,7 +2,7 @@
 
 ## 执行限制
 
-当前只允许实现 **Milestone 1：工程底座与数据层**。
+当前任务 **Milestone 1：工程底座与数据层** 已完成验收。
 
 在 `docs/roadmap/milestones.md` 明确更新前，不得实现 Milestone 2-5 的任何业务能力。
 
@@ -18,16 +18,16 @@
 
 ## Milestone 1 允许做的事
 
-- 搭建 Docker Compose
-- 创建后端应用壳
-- 创建前端应用壳
-- 添加数据库迁移机制
-- 创建 v0.1 核心表结构
-- 实现 `Source` CRUD
-- 注册 YouTube placeholder `Connector`
-- 添加核心表基础读写测试
-- 添加 `Source` CRUD 测试
-- 验证空库可完整初始化
+- [x] 搭建 Docker Compose
+- [x] 创建后端应用壳
+- [x] 创建前端应用壳
+- [x] 添加数据库迁移机制
+- [x] 创建 v0.1 核心表结构
+- [x] 实现 `Source` CRUD
+- [x] 注册 YouTube placeholder `Connector`
+- [x] 添加核心表基础读写测试
+- [x] 添加 `Source` CRUD 测试
+- [x] 验证空库可完整初始化
 
 ## Milestone 1 禁止做的事
 
@@ -56,23 +56,23 @@
 
 ## Milestone 1 交付物
 
-- 可启动的本地开发环境
-- 后端与前端基础项目结构
-- 数据库迁移机制
-- 核心数据表
-- `Source` CRUD API
-- YouTube placeholder `Connector`，只注册接口，不抓取
-- 基础测试
+- [x] 可启动的本地开发环境
+- [x] 后端与前端基础项目结构
+- [x] 数据库迁移机制
+- [x] 核心数据表
+- [x] `Source` CRUD API
+- [x] YouTube placeholder `Connector`，只注册接口，不抓取
+- [x] 基础测试
 
 ## 测试标准
 
-- Docker Compose 一条命令能启动前端、后端、数据库。
-- 迁移可重复执行，空库可完整初始化。
-- `Source` 能创建、编辑、启停、删除。
-- 核心表有基础读写测试。
-- YouTube placeholder 只注册接口，不执行真实抓取。
-- 所有 Milestone 1 测试通过。
-- 没有实现 Milestone 2-5 的业务功能。
+- [x] Docker Compose 一条命令能启动前端、后端、数据库。
+- [x] 迁移可重复执行，空库可完整初始化。
+- [x] `Source` 能创建、编辑、启停、删除。
+- [x] 核心表有基础读写测试。
+- [x] YouTube placeholder 只注册接口，不执行真实抓取。
+- [x] 所有 Milestone 1 测试通过。
+- [x] 没有实现 Milestone 2-5 的业务功能。
 
 ## 命名要求
 

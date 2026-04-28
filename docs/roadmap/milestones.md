@@ -8,26 +8,26 @@
 
 ## Milestone 1：工程底座与数据层
 
-状态：allowed
+状态：completed
 
-- [ ] 搭建 Docker Compose，支持一条命令启动前端、后端、数据库
-- [ ] 创建后端应用壳
-- [ ] 创建前端应用壳
-- [ ] 添加数据库迁移机制
-- [ ] 创建 v0.1 核心表结构
-- [ ] 实现 `Source` CRUD
-- [ ] 注册 YouTube placeholder `Connector`，只注册接口，不执行真实抓取
-- [ ] 为核心表添加基础读写测试
-- [ ] 为 `Source` CRUD 添加测试
-- [ ] 验证空库可完整初始化
+- [x] 搭建 Docker Compose，支持一条命令启动前端、后端、数据库
+- [x] 创建后端应用壳
+- [x] 创建前端应用壳
+- [x] 添加数据库迁移机制
+- [x] 创建 v0.1 核心表结构
+- [x] 实现 `Source` CRUD
+- [x] 注册 YouTube placeholder `Connector`，只注册接口，不执行真实抓取
+- [x] 为核心表添加基础读写测试
+- [x] 为 `Source` CRUD 添加测试
+- [x] 验证空库可完整初始化
 
 测试标准：
 
-- [ ] Docker Compose 一条命令启动前端、后端、数据库
-- [ ] 迁移可重复执行，空库可完整初始化
-- [ ] `Source` 能创建、编辑、启停、删除
-- [ ] 核心表有基础读写测试
-- [ ] YouTube placeholder 只注册接口，不执行真实抓取
+- [x] Docker Compose 一条命令启动前端、后端、数据库
+- [x] 迁移可重复执行，空库可完整初始化
+- [x] `Source` 能创建、编辑、启停、删除
+- [x] 核心表有基础读写测试
+- [x] YouTube placeholder 只注册接口，不执行真实抓取
 
 ## Milestone 2：连接器与 RawItem 入库
 
