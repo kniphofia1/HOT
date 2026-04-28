@@ -16,6 +16,7 @@ from app.services.ai import (
     build_ai_provider,
 )
 from app.services.candidates import ensure_missing_event_candidates
+from app.services.scoring import calculate_hot_score
 
 
 @dataclass
@@ -90,6 +91,12 @@ def run_event_clustering(
                     continue
                 db.add(_build_evidence(db, cluster.id, candidate, summary.confidence))
                 result.evidence_created += 1
+
+            cluster_evidence = list(
+                db.scalars(select(Evidence).where(Evidence.event_cluster_id == cluster.id)).all()
+            )
+            cluster.hot_score, cluster.score_reason_json = calculate_hot_score(db, cluster, cluster_evidence)
+            db.add(cluster)
 
             _record_ai_run(
                 db,
