@@ -1,0 +1,108 @@
+# Milestone 路线图
+
+## 执行规则
+
+当前只允许执行 **Milestone 1：工程底座与数据层**。
+
+不得开始 Milestone 2-5。只有当本文档明确把后续 Milestone 标记为 `allowed` 后，才能继续实现。
+
+## Milestone 1：工程底座与数据层
+
+状态：allowed
+
+- [ ] 搭建 Docker Compose，支持一条命令启动前端、后端、数据库
+- [ ] 创建后端应用壳
+- [ ] 创建前端应用壳
+- [ ] 添加数据库迁移机制
+- [ ] 创建 v0.1 核心表结构
+- [ ] 实现 `Source` CRUD
+- [ ] 注册 YouTube placeholder `Connector`，只注册接口，不执行真实抓取
+- [ ] 为核心表添加基础读写测试
+- [ ] 为 `Source` CRUD 添加测试
+- [ ] 验证空库可完整初始化
+
+测试标准：
+
+- [ ] Docker Compose 一条命令启动前端、后端、数据库
+- [ ] 迁移可重复执行，空库可完整初始化
+- [ ] `Source` 能创建、编辑、启停、删除
+- [ ] 核心表有基础读写测试
+- [ ] YouTube placeholder 只注册接口，不执行真实抓取
+
+## Milestone 2：连接器与 RawItem 入库
+
+状态：blocked
+
+- [ ] 实现 RSS `Connector`
+- [ ] 实现 HN `Connector`
+- [ ] 实现 GitHub repo watch
+- [ ] 实现 GitHub release watch
+- [ ] 实现网页监控 `Connector`
+- [ ] 统一写入 `RawItem`
+- [ ] 统一写入 `FetchRun`
+- [ ] 统一写入 `MetricSnapshot`
+- [ ] 实现单个 `Source` 失败不影响其他 `Source`
+
+测试标准：
+
+- [ ] 3 个真实 RSS 源可解析并去重
+- [ ] HN top/new/best 可抓取指定数量
+- [ ] GitHub repo/release 可检测新增 release 和基础指标
+- [ ] 网页内容不变时不生成重复 `RawItem`，变化时生成 snapshot 和 diff
+- [ ] 任一 `Source` 失败不影响其他 `Source` 抓取
+
+## Milestone 3：AI 聚类、摘要与 Evidence
+
+状态：blocked
+
+- [ ] 实现 `EventCandidate`
+- [ ] 实现候选分桶
+- [ ] 实现 AI 合并事件
+- [ ] 实现 AI 摘要生成
+- [ ] 实现 `Evidence` 引用链路
+- [ ] 实现 `AiRunLog` 记录
+- [ ] 实现 AI 调用失败降级
+
+测试标准：
+
+- [ ] 多个相似 `RawItem` 能聚合为一个 `EventCluster`
+- [ ] 不相关 `RawItem` 不应被错误合并
+- [ ] 每个 AI 摘要至少绑定 1 条 `Evidence`
+- [ ] AI 调用失败时保留 `RawItem` / `EventCandidate`，并记录 `AiRunLog`
+- [ ] 事件详情页能回溯原始来源链接和引用片段
+
+## Milestone 4：热度评分与雷达 UI
+
+状态：blocked
+
+- [ ] 实现事件排序
+- [ ] 实现可解释评分
+- [ ] 构建雷达列表
+- [ ] 构建事件详情
+- [ ] 构建运行日志
+- [ ] 明确不实现简报导出
+
+测试标准：
+
+- [ ] 事件列表支持时间、来源、分数、类型筛选
+- [ ] UI 空状态、加载中、错误状态完整
+
+## Milestone 5：Markdown 简报导出
+
+状态：blocked
+
+- [ ] 实现 `BriefTemplate`
+- [ ] 实现 `BriefExport`
+- [ ] 实现事件勾选
+- [ ] 实现人工点评
+- [ ] 实现 Markdown 预览
+- [ ] 实现 Markdown 下载
+- [ ] 内置 AI/科技 与 投资/产业 两个模板
+
+测试标准：
+
+- [ ] 可从事件流选择多个 `EventCluster` 生成简报
+- [ ] Markdown 包含标题、日期、事件摘要、推荐理由、来源引用、人工点评
+- [ ] 内置 AI/科技 与 投资/产业 两个模板
+- [ ] 重新编辑点评后可重新生成 Markdown
+- [ ] 中文内容、长标题、失效链接、空 `Evidence` 都有稳定降级表现
