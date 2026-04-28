@@ -2,9 +2,9 @@
 
 ## 执行规则
 
-当前任务 **Milestone 2：连接器与 RawItem 入库** 已完成验收。
+当前任务 **Milestone 3：AI 聚类、摘要与 Evidence** 已完成验收。
 
-不得开始 Milestone 3-5。只有当本文档明确把后续 Milestone 标记为 `allowed` 后，才能继续实现。
+不得开始 Milestone 4-5。只有当本文档明确把后续 Milestone 标记为 `allowed` 后，才能继续实现。
 
 ## Milestone 1：工程底座与数据层
 
@@ -53,23 +53,23 @@
 
 ## Milestone 3：AI 聚类、摘要与 Evidence
 
-状态：blocked
+状态：completed
 
-- [ ] 实现 `EventCandidate`
-- [ ] 实现候选分桶
-- [ ] 实现 AI 合并事件
-- [ ] 实现 AI 摘要生成
-- [ ] 实现 `Evidence` 引用链路
-- [ ] 实现 `AiRunLog` 记录
-- [ ] 实现 AI 调用失败降级
+- [x] 实现 `EventCandidate`
+- [x] 实现候选分桶
+- [x] 实现 AI 合并事件
+- [x] 实现 AI 摘要生成
+- [x] 实现 `Evidence` 引用链路
+- [x] 实现 `AiRunLog` 记录
+- [x] 实现 AI 调用失败降级
 
 测试标准：
 
-- [ ] 多个相似 `RawItem` 能聚合为一个 `EventCluster`
-- [ ] 不相关 `RawItem` 不应被错误合并
-- [ ] 每个 AI 摘要至少绑定 1 条 `Evidence`
-- [ ] AI 调用失败时保留 `RawItem` / `EventCandidate`，并记录 `AiRunLog`
-- [ ] 事件详情页能回溯原始来源链接和引用片段
+- [x] 多个相似 `RawItem` 能聚合为一个 `EventCluster`
+- [x] 不相关 `RawItem` 不应被错误合并
+- [x] 每个 AI 摘要至少绑定 1 条 `Evidence`
+- [x] AI 调用失败时保留 `RawItem` / `EventCandidate`，并记录 `AiRunLog`
+- [x] 事件详情 API 能回溯原始来源链接和引用片段
 
 ## Milestone 4：热度评分与雷达 UI
 

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.connectors.types import RawItemPayload
 from app.connectors.utils import stable_hash
 from app.db.models import MetricSnapshot, RawItem, Source
+from app.services.candidates import ensure_event_candidate
 
 
 def ingest_raw_item(db: Session, source: Source, payload: RawItemPayload) -> tuple[RawItem, bool]:
@@ -36,6 +37,8 @@ def ingest_raw_item(db: Session, source: Source, payload: RawItemPayload) -> tup
         db.add(existing)
         db.flush()
         created = True
+
+    ensure_event_candidate(db, existing)
 
     for metric in payload.metrics:
         db.add(
