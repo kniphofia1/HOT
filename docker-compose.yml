@@ -26,6 +26,9 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID:-}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET:-}
+      REDDIT_USER_AGENT: ${REDDIT_USER_AGENT:-hot-radar/0.1}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:

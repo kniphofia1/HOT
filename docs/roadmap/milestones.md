@@ -10,6 +10,8 @@
 
 当前 UI 补丁：**v0.1 信源管理配置台**，只允许把已有 Source 类型和热榜规划入口整理成卡片式配置界面，不得借机实现 v0.1 禁止的平台或导出格式。
 
+当前验收后扩展：**公开社交媒体信源扩展**，只允许接入 Reddit、Bluesky、Mastodon 的公开或官方链路；不得实现 X、国内平台、YouTube 真实抓取、登录态抓取、Cookie 抓取、验证码处理、私有页面抓取或评论舆情分析。
+
 ## Milestone 1：工程底座与数据层
 
 状态：completed
@@ -129,6 +131,20 @@
 - [x] RSS、公开网页、Hacker News、GitHub repo、GitHub release 分别提供卡片式新增表单
 - [x] 每类信源卡片内展示已有实例、启停状态、刷新频率、权重、最近抓取时间和最后错误
 - [x] 支持单个 Source 启用/停用、立即刷新和确认删除
-- [x] 热榜信源作为规划入口展示，等待 `hotlist` Connector 落地后启用创建
+- [x] 后续扩展信源作为说明入口展示，不在 Connector 落地前创建真实 Source
 - [x] YouTube placeholder 只展示占位状态，不提供真实抓取配置
 - [x] Hacker News 支持 `top`、`new`、`best`、`show` 列表
+
+## 公开社交媒体信源扩展
+
+状态：completed
+
+- [x] 新增 `reddit_subreddit` Connector
+- [x] 新增 `bluesky_search` Connector
+- [x] 新增 `bluesky_actor_feed` Connector，用于公开作者时间线实际抓取
+- [x] 新增 `mastodon_timeline` Connector
+- [x] 三类社交信源均写入 `RawItem`、`FetchRun` 和 `MetricSnapshot`
+- [x] 信源管理页为 Reddit、Bluesky、Mastodon 分别提供独立配置卡片
+- [x] 受限社交平台只展示说明，不提供真实抓取入口
+- [x] 新增 ADR 和任务文档约束社交平台合规边界
+- [x] 增加后端 Connector 测试并通过前端类型检查

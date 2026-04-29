@@ -81,7 +81,7 @@ Milestone 5 完成后，允许收口一个不扩大产品范围的体验补丁�
 - [x] 支持 RSS、公开网页、Hacker News、GitHub repo、GitHub release 的新增表单。
 - [x] 支持已有 Source 的启停、立即刷新和确认删除。
 - [x] 展示最近抓取时间、最后错误、刷新频率和权重。
-- [x] 热榜信源只作为规划入口，不在 connector 落地前创建真实 Source。
+- [x] 后续扩展信源只作为说明入口，不在 connector 落地前创建真实 Source。
 - [x] YouTube placeholder 只展示占位说明，不提供真实抓取入口。
 
 ## 命名要求

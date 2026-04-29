@@ -2,10 +2,11 @@
 
 ## Summary
 
-v0.1 聚焦本地单机闭环：
+v0.1 聚焦本地单机闭环。Milestone 1-5 验收后，允许增加一组公开社交媒体信源扩展，但仍然保持本地单用户、证据可追溯和 Markdown 简报交付。
 
 ```text
 RSS / 指定网页 / Hacker News / GitHub repo + release watch
+验收后扩展：Reddit subreddit / Bluesky search + actor feed / Mastodon public timeline
 -> 统一入库
 -> AI 聚类与摘要
 -> 来源引用
@@ -37,6 +38,7 @@ RSS / 指定网页 / Hacker News / GitHub repo + release watch
 - `connectors/webpage`：公开网页拉取、CSS Selector 文本抽取、快照与 diff
 - `connectors/hackerNews`：HN top/new/best/show/item 抓取与指标记录
 - `connectors/github`：repo 指标与 release watch
+- `connectors/social`：Reddit subreddit、Bluesky public search、Bluesky actor feed、Mastodon public/tag timeline，全部通过公开或官方链路抓取并写入 `RawItem`
 - `scheduler`：按 `Source` 刷新频率调度，支持手动刷新，写入 `FetchRun`
 - `ingestion`：`RawItem` 标准化、URL canonicalize、`contentHash` 去重、生成 `EventCandidate`
 - `clustering`：候选分桶、AI 合并事件、AI 摘要、`Evidence` 绑定、`AiRunLog` 记录
@@ -49,7 +51,7 @@ RSS / 指定网页 / Hacker News / GitHub repo + release watch
 
 - `Radar / 情报雷达`：`EventCluster` 流、筛选、分数、推荐理由、证据数量，优先展示中文翻译标题和摘要
 - `Event Detail / 事件详情`：聚类内 `RawItem`、来源引用、指标变化、AI 摘要、中文翻译展示、人工备注
-- `Sources / 信源管理`：按类型卡片配置 RSS、公开网页、HN、GitHub repo/release 和热榜规划入口，支持新增、启停、刷新、删除和错误查看
+- `Sources / 信源管理`：按类型卡片配置 RSS、公开网页、HN、GitHub repo/release、Reddit、Bluesky、Mastodon 和受限平台说明，支持新增、启停、刷新、删除和错误查看
 - `Web Watch / 网页监控`：URL、CSS Selector、刷新频率、快照历史、diff 摘要
 - `GitHub Watch`：repo/release watch、latest release、指标趋势
 - `Runs / 运行日志`：`FetchRun` 与 `AiRunLog` 查询

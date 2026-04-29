@@ -18,6 +18,10 @@ def test_youtube_placeholder_is_registered_without_fetch(client):
     assert payload["github_repo"]["realFetchEnabled"] is True
     assert payload["github_release"]["realFetchEnabled"] is True
     assert payload["webpage"]["realFetchEnabled"] is True
+    assert payload["reddit_subreddit"]["realFetchEnabled"] is True
+    assert payload["bluesky_search"]["realFetchEnabled"] is True
+    assert payload["bluesky_actor_feed"]["realFetchEnabled"] is True
+    assert payload["mastodon_timeline"]["realFetchEnabled"] is True
 
 
 def test_youtube_placeholder_fetch_is_blocked():

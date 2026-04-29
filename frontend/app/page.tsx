@@ -84,6 +84,10 @@ export default async function RadarPage({
               <option value="hacker_news">Hacker News</option>
               <option value="github_repo">GitHub repo</option>
               <option value="github_release">GitHub release</option>
+              <option value="reddit_subreddit">Reddit subreddit</option>
+              <option value="bluesky_search">Bluesky search</option>
+              <option value="bluesky_actor_feed">Bluesky author feed</option>
+              <option value="mastodon_timeline">Mastodon timeline</option>
             </select>
           </label>
           <label>

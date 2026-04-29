@@ -39,11 +39,13 @@ type SourceField =
       options: Array<{ label: string; value: string }>;
     };
 
+const disabledSourceTypes = new Set(["restricted_social", "youtube_placeholder"]);
+
 const sourceCards: SourceCard[] = [
   {
     type: "rss",
     title: "RSS",
-    summary: "订阅博客、公告、媒体和研究机构的公开 RSS/Atom/JSON Feed。",
+    summary: "订阅博客、公告、媒体和研究机构的公开 RSS、Atom 或 JSON Feed。",
     fields: [
       { name: "name", label: "名称", type: "text", placeholder: "OpenAI Blog", required: true },
       { name: "url", label: "Feed URL", type: "url", placeholder: "https://example.com/feed.xml", required: true },
@@ -54,7 +56,7 @@ const sourceCards: SourceCard[] = [
   {
     type: "webpage",
     title: "公开网页监控",
-    summary: "监控公开页面或指定 CSS 区域，适合公告页、更新页和公开热榜页。",
+    summary: "监控公开页面或指定 CSS 区域，适合公告页、更新页和公开榜单页。",
     fields: [
       { name: "name", label: "名称", type: "text", placeholder: "产品更新页", required: true },
       { name: "url", label: "页面 URL", type: "url", placeholder: "https://example.com/changelog", required: true },
@@ -111,11 +113,101 @@ const sourceCards: SourceCard[] = [
     ],
   },
   {
-    type: "hotlist",
-    title: "热榜信源",
-    summary: "规划接入 GitHub Trending、Hugging Face Models、Hugging Face Papers、Product Hunt 等热榜。",
-    disabledReason: "等待 hotlist Connector 落地后启用创建；当前可先用公开网页监控接入单个热榜页面。",
-    presets: ["GitHub Trending", "HF Models", "HF Papers", "Product Hunt"],
+    type: "reddit_subreddit",
+    title: "Reddit Subreddit",
+    summary: "按 subreddit 抓取 hot、new、top、rising 或站内搜索结果，记录分数和评论数。",
+    presets: ["hot", "new", "top", "rising", "search"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Reddit r/MachineLearning", required: true },
+      { name: "subreddit", label: "Subreddit", type: "text", placeholder: "MachineLearning", required: true },
+      {
+        name: "sort",
+        label: "列表",
+        type: "select",
+        defaultValue: "hot",
+        options: [
+          { label: "Hot", value: "hot" },
+          { label: "New", value: "new" },
+          { label: "Top", value: "top" },
+          { label: "Rising", value: "rising" },
+          { label: "Search", value: "search" },
+        ],
+      },
+      {
+        name: "timeRange",
+        label: "时间范围",
+        type: "select",
+        defaultValue: "day",
+        options: [
+          { label: "Hour", value: "hour" },
+          { label: "Day", value: "day" },
+          { label: "Week", value: "week" },
+          { label: "Month", value: "month" },
+          { label: "Year", value: "year" },
+          { label: "All", value: "all" },
+        ],
+      },
+      { name: "query", label: "搜索词", type: "text", placeholder: "仅 search 需要" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 25, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 60, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "bluesky_search",
+    title: "Bluesky Search",
+    summary: "按关键词抓取 Bluesky 帖子；部分环境下搜索端点可能要求鉴权，失败时优先使用 Author Feed。",
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Bluesky AI search", required: true },
+      { name: "query", label: "关键词", type: "text", placeholder: "open source AI", required: true },
+      { name: "actor", label: "作者 handle", type: "text", placeholder: "可选，例如 bsky.app" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 25, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 60, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "bluesky_actor_feed",
+    title: "Bluesky Author Feed",
+    summary: "抓取指定 Bluesky 账号的公开时间线，适合跟踪官方账号、研究员和机构账号。",
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Bluesky official", required: true },
+      { name: "actor", label: "账号 handle", type: "text", placeholder: "bsky.app", required: true },
+      { name: "limit", label: "数量", type: "number", defaultValue: 25, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 60, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "mastodon_timeline",
+    title: "Mastodon Timeline",
+    summary: "抓取指定 Mastodon 实例的公开时间线或标签时间线，记录回复、转发和收藏指标。",
+    presets: ["public", "tag"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Mastodon AI tag", required: true },
+      { name: "instanceUrl", label: "实例 URL", type: "url", placeholder: "https://mastodon.social", required: true },
+      {
+        name: "mode",
+        label: "模式",
+        type: "select",
+        defaultValue: "public",
+        options: [
+          { label: "Public", value: "public" },
+          { label: "Tag", value: "tag" },
+        ],
+      },
+      { name: "tag", label: "标签", type: "text", placeholder: "仅 tag 需要，例如 ai" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 25, min: 1, max: 40 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 60, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "restricted_social",
+    title: "受限社交平台",
+    summary: "X、YouTube、Instagram/Facebook、TikTok 和国内平台需要单独的 API、成本与合规方案。",
+    disabledReason: "当前不会抓取需要登录态、Cookie、验证码、私有页面或反爬绕过的平台。后续必须先补充 ADR 和 Connector 合规边界。",
+    presets: ["X deferred", "YouTube placeholder", "国内平台 deferred"],
     fields: [],
   },
   {
@@ -130,14 +222,14 @@ const sourceCards: SourceCard[] = [
 async function createSourceAction(formData: FormData) {
   "use server";
   const type = stringValue(formData, "sourceType");
-  if (type === "hotlist" || type === "youtube_placeholder") {
+  if (disabledSourceTypes.has(type)) {
     return;
   }
 
   await postJsonBody<Source>("/api/sources", {
     type,
     name: stringValue(formData, "name", defaultSourceName(type)),
-    url: optionalStringValue(formData, "url"),
+    url: optionalStringValue(formData, "url") ?? optionalStringValue(formData, "instanceUrl"),
     enabled: true,
     weight: numberValue(formData, "weight", 1),
     pollIntervalMinutes: numberValue(formData, "pollIntervalMinutes", 60),
@@ -283,7 +375,7 @@ function SourceFieldControl({ field }: { field: SourceField }) {
 }
 
 function SourceInstance({ source }: { source: Source }) {
-  const supportsRuntimeActions = source.type !== "youtube_placeholder" && source.type !== "hotlist";
+  const supportsRuntimeActions = !disabledSourceTypes.has(source.type);
 
   return (
     <div className="sourceInstance">
@@ -356,8 +448,31 @@ function sourceConfigSummary(source: Source): string {
   if (source.type === "github_release") {
     return `${source.url || "未配置仓库"} / Release 数 ${stringFromConfig(source, "limit", "10")}`;
   }
-  if (source.type === "hotlist") {
-    return `${stringFromConfig(source, "provider", "未配置 provider")} / ${stringFromConfig(source, "period", "daily")}`;
+  if (source.type === "reddit_subreddit") {
+    return `r/${stringFromConfig(source, "subreddit", "未配置")} / ${stringFromConfig(
+      source,
+      "sort",
+      "hot",
+    )} / 数量 ${stringFromConfig(source, "limit", "25")}`;
+  }
+  if (source.type === "bluesky_search") {
+    return `关键词 ${stringFromConfig(source, "query", "未配置")} / 作者 ${stringFromConfig(
+      source,
+      "actor",
+      "不限",
+    )} / 数量 ${stringFromConfig(source, "limit", "25")}`;
+  }
+  if (source.type === "bluesky_actor_feed") {
+    return `账号 @${stringFromConfig(source, "actor", "未配置")} / 数量 ${stringFromConfig(source, "limit", "25")}`;
+  }
+  if (source.type === "mastodon_timeline") {
+    const mode = stringFromConfig(source, "mode", "public");
+    const label = mode === "tag" ? `#${stringFromConfig(source, "tag", "未配置")}` : "public";
+    return `${stringFromConfig(source, "instanceUrl", source.url || "未配置实例")} / ${label} / 数量 ${stringFromConfig(
+      source,
+      "limit",
+      "25",
+    )}`;
   }
   return source.url || "未配置 URL";
 }
@@ -383,6 +498,36 @@ function configJsonFor(type: string, formData: FormData): Record<string, unknown
   if (type === "github_release") {
     return {
       limit: numberValue(formData, "limit", 10),
+    };
+  }
+  if (type === "reddit_subreddit") {
+    return {
+      subreddit: stringValue(formData, "subreddit"),
+      sort: stringValue(formData, "sort", "hot"),
+      timeRange: stringValue(formData, "timeRange", "day"),
+      query: optionalStringValue(formData, "query"),
+      limit: numberValue(formData, "limit", 25),
+    };
+  }
+  if (type === "bluesky_search") {
+    return {
+      query: stringValue(formData, "query"),
+      actor: optionalStringValue(formData, "actor"),
+      limit: numberValue(formData, "limit", 25),
+    };
+  }
+  if (type === "bluesky_actor_feed") {
+    return {
+      actor: stringValue(formData, "actor"),
+      limit: numberValue(formData, "limit", 25),
+    };
+  }
+  if (type === "mastodon_timeline") {
+    return {
+      instanceUrl: stringValue(formData, "instanceUrl"),
+      mode: stringValue(formData, "mode", "public"),
+      tag: optionalStringValue(formData, "tag"),
+      limit: numberValue(formData, "limit", 25),
     };
   }
   return {};
