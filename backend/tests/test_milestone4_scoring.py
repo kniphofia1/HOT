@@ -54,6 +54,29 @@ def test_cluster_list_supports_time_source_score_type_filters_and_score_sort(cli
     assert payload[0]["sourceNames"] == ["RSS"]
 
 
+def test_cluster_list_returns_primary_source_and_other_source_type_count(client, db_session):
+    rss_source = _source(db_session, "rss", "RSS", weight=1)
+    hn_source = _source(db_session, "hacker_news", "HN", weight=3)
+    github_source = _source(db_session, "github_repo", "GitHub", weight=3)
+    cluster = _cluster(db_session, "Multi source event", confidence=88, hours_ago=1)
+    cluster.hot_score = 80
+    cluster.score_reason_json = [{"key": "sourceWeight", "score": 20, "detail": "多平台报道"}]
+
+    _evidence(db_session, cluster, _raw_item(db_session, rss_source, "RSS report", hours_ago=1))
+    _evidence(db_session, cluster, _raw_item(db_session, hn_source, "HN report", hours_ago=3))
+    _evidence(db_session, cluster, _raw_item(db_session, github_source, "GitHub report", hours_ago=2))
+    db_session.commit()
+
+    response = client.get("/api/clusters?sort=score")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload[0]["id"] == cluster.id
+    assert payload[0]["primarySourceName"] == "GitHub"
+    assert payload[0]["primarySourceType"] == "github_repo"
+    assert payload[0]["otherSourceTypeCount"] == 2
+
+
 def test_score_endpoint_recomputes_all_clusters(client, db_session):
     source = _source(db_session, "github_repo", "GitHub", weight=2)
     raw_item = _raw_item(db_session, source, "Repo metrics changed", hours_ago=1)

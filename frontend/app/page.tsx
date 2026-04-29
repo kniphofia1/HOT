@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
-import { EventCluster, fetchJson, formatDateTime, postJson } from "../lib/api";
+import { EventCluster, RefreshRun, fetchJson, formatDateTime, postJson } from "../lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,14 @@ type RadarSearchParams = {
   minScore?: string;
   sort?: string;
 };
+
+async function refreshRadarAction() {
+  "use server";
+  await postJson<RefreshRun>("/api/clusters/refresh");
+  revalidatePath("/");
+  revalidatePath("/sources");
+  revalidatePath("/runs");
+}
 
 async function scoreClustersAction() {
   "use server";
@@ -103,6 +111,11 @@ export default async function RadarPage({
           </label>
           <button type="submit">筛选</button>
         </form>
+        <form action={refreshRadarAction}>
+          <button type="submit">
+            刷新情报
+          </button>
+        </form>
         <form action={scoreClustersAction}>
           <button className="secondaryButton" type="submit">
             重新评分
@@ -127,7 +140,7 @@ export default async function RadarPage({
             <article className="eventCard" key={item.id}>
               <div className="eventTime">{formatDateTime(item.lastSeenAt)}</div>
               <div className="eventBody">
-                <div className="eventMeta">{item.sourceNames.join(" / ") || "未记录来源"}</div>
+                <div className="eventMeta">{formatPrimarySource(item)}</div>
                 <div className="eventTitleRow">
                   <h2>
                     <Link href={`/events/${item.id}`}>{item.displayTitle}</Link>
@@ -136,20 +149,19 @@ export default async function RadarPage({
                 </div>
                 <p>{item.displaySummary || "暂无摘要"}</p>
                 <div className="tagRow">
-                  {item.sourceTypes.map((type) => (
-                    <span key={type}>{type}</span>
+                  {item.editorialTagsJson.map((tag) => (
+                    <span key={tag}>{tag}</span>
                   ))}
-                  <span>{item.evidenceCount} 条 Evidence</span>
-                  <span>置信度 {item.confidence}</span>
+                  {item.editorialCategory ? <span>{formatEditorialCategory(item.editorialCategory)}</span> : null}
                 </div>
-                <div className="reasonGrid">
-                  {item.scoreReasonJson.map((reason) => (
-                    <div className="reasonPill" key={reason.key}>
-                      <strong>{reason.label}</strong>
-                      <span>{reason.score}</span>
-                      <small>{reason.detail}</small>
-                    </div>
-                  ))}
+                {item.otherSourceTypeCount > 0 ? (
+                  <Link className="sourceFoldLink" href={`/events/${item.id}`}>
+                    另有 {item.otherSourceTypeCount} 个平台也报道了此事件
+                  </Link>
+                ) : null}
+                <div className="reasonBar">
+                  <strong>推荐理由：</strong>
+                  <span>{primaryReason(item)}</span>
                 </div>
               </div>
             </article>
@@ -158,6 +170,45 @@ export default async function RadarPage({
       ) : null}
     </section>
   );
+}
+
+const sourceTypeLabels: Record<string, string> = {
+  rss: "RSS",
+  webpage: "网页",
+  hacker_news: "Hacker News",
+  github_repo: "GitHub repo",
+  github_release: "GitHub release",
+  reddit_subreddit: "Reddit",
+  bluesky_search: "Bluesky search",
+  bluesky_actor_feed: "Bluesky author feed",
+  mastodon_timeline: "Mastodon",
+};
+
+const editorialCategoryLabels: Record<string, string> = {
+  ai_big_news: "AI 大新闻",
+  commercial_value: "商业价值",
+  watchlist_update: "重点源更新",
+  tech_project: "技术项目",
+  other: "其他",
+};
+
+function formatPrimarySource(item: EventCluster): string {
+  if (!item.primarySourceName) {
+    return "未记录来源";
+  }
+  if (!item.primarySourceType) {
+    return item.primarySourceName;
+  }
+  return `${item.primarySourceName}（${sourceTypeLabels[item.primarySourceType] ?? item.primarySourceType}）`;
+}
+
+function formatEditorialCategory(category: string): string {
+  return editorialCategoryLabels[category] ?? category;
+}
+
+function primaryReason(item: EventCluster): string {
+  const [reason] = [...item.scoreReasonJson].sort((left, right) => right.score - left.score);
+  return reason?.detail || "暂无推荐理由";
 }
 
 function StatePanel({ title, detail }: { title: string; detail: string }) {

@@ -223,6 +223,12 @@ def _update_cluster(
         cluster.translated_title = None
         cluster.translated_summary = None
         cluster.translated_at = None
+        cluster.editorial_title = None
+        cluster.editorial_summary = None
+        cluster.editorial_category = None
+        cluster.editorial_tags_json = []
+        cluster.editorial_priority = 0
+        cluster.editorial_at = None
     cluster.title = summary.title
     cluster.summary = summary.summary
     cluster.confidence = summary.confidence

@@ -70,6 +70,28 @@ def test_translation_failure_keeps_original_display_and_logs_failure(client, db_
     assert run_log.error_message == "translation unavailable"
 
 
+def test_cluster_api_prefers_editorial_display_fields(client, db_session):
+    cluster = _cluster(db_session, "Original model launch", "Original summary.")
+    cluster.translated_title = "中文：Original model launch"
+    cluster.translated_summary = "中文摘要：Original summary."
+    cluster.editorial_title = "精选标题"
+    cluster.editorial_summary = "精选摘要"
+    cluster.editorial_category = "ai_big_news"
+    cluster.editorial_tags_json = ["Agent", "模型发布"]
+    cluster.editorial_priority = 92
+    db_session.add(cluster)
+    db_session.commit()
+
+    response = client.get(f"/api/clusters/{cluster.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["displayTitle"] == "精选标题"
+    assert payload["displaySummary"] == "精选摘要"
+    assert payload["editorialTagsJson"] == ["Agent", "模型发布"]
+    assert payload["editorialPriority"] == 92
+
+
 def test_brief_markdown_prefers_translated_cluster_text(db_session):
     cluster = _cluster(db_session, "Anthropic publishes a report", "Reliability details are available.")
     translate_event_clusters(db_session, ai_provider=FakeTranslationProvider())

@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import {
   Source,
+  RefreshRun,
   deleteJson,
   fetchJson,
   formatDateTime,
@@ -250,8 +251,10 @@ async function toggleSourceAction(formData: FormData) {
 async function refreshSourceAction(formData: FormData) {
   "use server";
   const sourceId = stringValue(formData, "sourceId");
-  await postJson(`/api/sources/${sourceId}/refresh`);
+  await postJson<RefreshRun>(`/api/sources/${sourceId}/refresh`);
+  revalidatePath("/");
   revalidatePath("/sources");
+  revalidatePath("/runs");
 }
 
 async function deleteSourceAction(formData: FormData) {

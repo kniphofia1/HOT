@@ -1,5 +1,10 @@
 from functools import lru_cache
 from os import getenv
+from pathlib import Path
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+DEFAULT_SQLITE_URL = f"sqlite:///{(BACKEND_DIR / 'dev-preview.db').as_posix()}"
 
 
 class Settings:
@@ -7,7 +12,7 @@ class Settings:
     app_env = getenv("APP_ENV", "development")
     database_url = getenv(
         "DATABASE_URL",
-        "postgresql+psycopg://radar:radar@localhost:5432/radar",
+        DEFAULT_SQLITE_URL,
     )
     ai_provider = getenv("AI_PROVIDER", "").strip()
     ai_model = getenv("AI_MODEL", "").strip()

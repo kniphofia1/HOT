@@ -177,10 +177,13 @@ a {
 }
 
 .eventTitleRow h2 {
+  min-width: 0;
   font-size: 21px;
+  overflow-wrap: anywhere;
 }
 
 .scoreBadge {
+  flex: 0 0 auto;
   min-width: 44px;
   padding: 5px 10px;
   border-radius: 999px;
@@ -205,11 +208,36 @@ a {
 }
 
 .reasonBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   min-height: 36px;
   padding: 8px 12px;
   border-radius: 6px;
   color: #62f1cf;
   background: var(--accent-soft);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.reasonBar strong,
+.reasonBar span {
+  min-width: 0;
+}
+
+.reasonBar span {
+  flex: 1 1 auto;
+}
+
+.sourceFoldLink {
+  width: fit-content;
+  color: #aeb8cc;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sourceFoldLink:hover {
+  color: var(--accent);
 }
 
 .panelGrid {

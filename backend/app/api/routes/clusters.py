@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.db.models import EventCluster, Evidence, RawItem, Source
 from app.db.session import get_db
 from app.services.clustering import ClusterRunResult, run_event_clustering
+from app.services.editorial import EditorialRunResult, edit_event_cluster, edit_event_clusters
+from app.services.radar_refresh import RadarRefreshResult, refresh_all_sources
 from app.services.scoring import ScoreRunResult, recompute_hot_scores
 from app.services.translation import TranslationRunResult, translate_event_cluster, translate_event_clusters
 
@@ -34,6 +36,12 @@ class EventClusterRead(BaseModel):
     translated_title: str | None = Field(alias="translatedTitle")
     translated_summary: str | None = Field(alias="translatedSummary")
     translated_at: datetime | None = Field(alias="translatedAt")
+    editorial_title: str | None = Field(alias="editorialTitle")
+    editorial_summary: str | None = Field(alias="editorialSummary")
+    editorial_category: str | None = Field(alias="editorialCategory")
+    editorial_tags_json: list[str] = Field(alias="editorialTagsJson")
+    editorial_priority: int = Field(alias="editorialPriority")
+    editorial_at: datetime | None = Field(alias="editorialAt")
     display_title: str = Field(alias="displayTitle")
     display_summary: str | None = Field(alias="displaySummary")
     hot_score: int = Field(alias="hotScore")
@@ -44,6 +52,9 @@ class EventClusterRead(BaseModel):
     evidence_count: int = Field(alias="evidenceCount")
     source_names: list[str] = Field(alias="sourceNames")
     source_types: list[str] = Field(alias="sourceTypes")
+    primary_source_name: str | None = Field(alias="primarySourceName")
+    primary_source_type: str | None = Field(alias="primarySourceType")
+    other_source_type_count: int = Field(alias="otherSourceTypeCount")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -81,6 +92,36 @@ class TranslationRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+class EditorialRunRead(BaseModel):
+    status: str
+    clusters_edited: int = Field(alias="clustersEdited")
+    clusters_skipped: int = Field(alias="clustersSkipped")
+    ai_runs_created: int = Field(alias="aiRunsCreated")
+    errors: list[str]
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class FetchRunSummaryRead(BaseModel):
+    status: str
+    items_found: int = Field(alias="itemsFound")
+    items_created: int = Field(alias="itemsCreated")
+    error_message: str | None = Field(alias="errorMessage")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class FullRefreshRead(BaseModel):
+    status: str
+    fetch_runs: list[FetchRunSummaryRead] = Field(alias="fetchRuns")
+    clustering: ClusterRunRead
+    editorial: EditorialRunRead
+    scoring: ScoreRunRead
+    errors: list[str]
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 @router.post("/run", response_model=ClusterRunRead)
 def run_clustering(limit: int = 100, db: Session = Depends(get_db)) -> ClusterRunResult:
     return run_event_clustering(db, limit=limit)
@@ -89,6 +130,24 @@ def run_clustering(limit: int = 100, db: Session = Depends(get_db)) -> ClusterRu
 @router.post("/score", response_model=ScoreRunRead)
 def score_clusters(db: Session = Depends(get_db)) -> ScoreRunResult:
     return recompute_hot_scores(db)
+
+
+@router.post("/editorial", response_model=EditorialRunRead)
+def edit_clusters(
+    force: bool = False,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> EditorialRunResult:
+    return edit_event_clusters(db, force=force, limit=limit)
+
+
+@router.post("/refresh", response_model=FullRefreshRead)
+def refresh_radar(
+    cluster_limit: int = Query(default=100, ge=1, le=500, alias="clusterLimit"),
+    editorial_limit: int = Query(default=100, ge=1, le=500, alias="editorialLimit"),
+    db: Session = Depends(get_db),
+) -> RadarRefreshResult:
+    return refresh_all_sources(db, cluster_limit=cluster_limit, editorial_limit=editorial_limit)
 
 
 @router.post("/translate", response_model=TranslationRunRead)
@@ -105,13 +164,16 @@ def list_clusters(
     hours: int | None = Query(default=None, ge=1),
     source_id: str | None = Query(default=None, alias="sourceId"),
     source_type: str | None = Query(default=None, alias="sourceType"),
+    editorial_category: str | None = Query(default=None, alias="editorialCategory"),
     min_score: int | None = Query(default=None, ge=0, le=100, alias="minScore"),
-    sort: str = Query(default="score", pattern="^(score|time)$"),
+    sort: str = Query(default="editorial", pattern="^(editorial|score|time)$"),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     clusters = list(db.scalars(select(EventCluster)).all())
     if min_score is not None:
         clusters = [cluster for cluster in clusters if cluster.hot_score >= min_score]
+    if editorial_category:
+        clusters = [cluster for cluster in clusters if cluster.editorial_category == editorial_category]
     if hours is not None:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         clusters = [
@@ -139,6 +201,18 @@ def translate_cluster(
     if cluster is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="EventCluster not found")
     return translate_event_cluster(db, cluster, force=force)
+
+
+@router.post("/{cluster_id}/editorial", response_model=EditorialRunRead)
+def edit_single_cluster(
+    cluster_id: str,
+    force: bool = False,
+    db: Session = Depends(get_db),
+) -> EditorialRunResult:
+    cluster = db.get(EventCluster, cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="EventCluster not found")
+    return edit_event_cluster(db, cluster, force=force)
 
 
 @router.get("/{cluster_id}", response_model=EventClusterDetailRead)
@@ -172,13 +246,19 @@ def get_cluster(cluster_id: str, db: Session = Depends(get_db)) -> dict:
 
 def _cluster_read(db: Session, cluster: EventCluster) -> dict:
     source_rows = db.execute(
-        select(Source.name, Source.type)
+        select(Source.name, Source.type, Source.weight, RawItem.published_at, RawItem.fetched_at)
         .join(RawItem, RawItem.source_id == Source.id)
         .join(Evidence, Evidence.raw_item_id == RawItem.id)
         .where(Evidence.event_cluster_id == cluster.id)
     ).all()
-    source_names = sorted({name for name, _ in source_rows})
-    source_types = sorted({source_type for _, source_type in source_rows})
+    source_names = sorted({name for name, _, _, _, _ in source_rows})
+    source_types = sorted({source_type for _, source_type, _, _, _ in source_rows})
+    primary_source = _primary_source(source_rows)
+    primary_source_name = primary_source[0] if primary_source is not None else None
+    primary_source_type = primary_source[1] if primary_source is not None else None
+    other_source_type_count = len(
+        {source_type for source_type in source_types if source_type != primary_source_type}
+    )
     evidence_count = db.scalar(
         select(func.count(Evidence.id)).where(Evidence.event_cluster_id == cluster.id)
     )
@@ -189,8 +269,14 @@ def _cluster_read(db: Session, cluster: EventCluster) -> dict:
         "translatedTitle": cluster.translated_title,
         "translatedSummary": cluster.translated_summary,
         "translatedAt": cluster.translated_at,
-        "displayTitle": cluster.translated_title or cluster.title,
-        "displaySummary": cluster.translated_summary or cluster.summary,
+        "editorialTitle": cluster.editorial_title,
+        "editorialSummary": cluster.editorial_summary,
+        "editorialCategory": cluster.editorial_category,
+        "editorialTagsJson": cluster.editorial_tags_json,
+        "editorialPriority": cluster.editorial_priority,
+        "editorialAt": cluster.editorial_at,
+        "displayTitle": cluster.editorial_title or cluster.translated_title or cluster.title,
+        "displaySummary": cluster.editorial_summary or cluster.translated_summary or cluster.summary,
         "hotScore": cluster.hot_score,
         "scoreReasonJson": cluster.score_reason_json,
         "confidence": cluster.confidence,
@@ -199,7 +285,24 @@ def _cluster_read(db: Session, cluster: EventCluster) -> dict:
         "evidenceCount": evidence_count or 0,
         "sourceNames": source_names,
         "sourceTypes": source_types,
+        "primarySourceName": primary_source_name,
+        "primarySourceType": primary_source_type,
+        "otherSourceTypeCount": other_source_type_count,
     }
+
+
+def _primary_source(source_rows: list) -> tuple[str, str] | None:
+    if not source_rows:
+        return None
+
+    def sort_key(row: tuple) -> tuple[int, float, str]:
+        name, _, weight, published_at, fetched_at = row
+        seen_at = published_at or fetched_at
+        timestamp = _ensure_aware(seen_at).timestamp() if seen_at is not None else 0.0
+        return (-(weight or 0), -timestamp, name)
+
+    name, source_type, _, _, _ = sorted(source_rows, key=sort_key)[0]
+    return name, source_type
 
 
 def _cluster_has_source(

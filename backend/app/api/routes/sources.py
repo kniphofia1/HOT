@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Source
 from app.db.session import get_db
-from app.services.connector_runner import run_enabled_sources, run_source_fetch
+from app.services.radar_refresh import RadarRefreshResult, refresh_all_sources, refresh_single_source
 
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
@@ -75,6 +75,45 @@ class FetchRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+class ClusterRunRead(BaseModel):
+    status: str
+    candidates_created: int = Field(alias="candidatesCreated")
+    clusters_created: int = Field(alias="clustersCreated")
+    clusters_updated: int = Field(alias="clustersUpdated")
+    evidence_created: int = Field(alias="evidenceCreated")
+    ai_runs_created: int = Field(alias="aiRunsCreated")
+    errors: list[str]
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class EditorialRunRead(BaseModel):
+    status: str
+    clusters_edited: int = Field(alias="clustersEdited")
+    clusters_skipped: int = Field(alias="clustersSkipped")
+    ai_runs_created: int = Field(alias="aiRunsCreated")
+    errors: list[str]
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ScoreRunRead(BaseModel):
+    clusters_scored: int = Field(alias="clustersScored")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class SourceRefreshRead(BaseModel):
+    status: str
+    fetch_runs: list[FetchRunRead] = Field(alias="fetchRuns")
+    clustering: ClusterRunRead
+    editorial: EditorialRunRead
+    scoring: ScoreRunRead
+    errors: list[str]
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
 @router.get("", response_model=list[SourceRead])
 def list_sources(db: Session = Depends(get_db)) -> list[Source]:
     return list(db.scalars(select(Source).order_by(Source.created_at.desc())).all())
@@ -97,9 +136,9 @@ def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> Sourc
     return source
 
 
-@router.post("/refresh", response_model=list[FetchRunRead])
-def refresh_enabled_sources(db: Session = Depends(get_db)):
-    return run_enabled_sources(db)
+@router.post("/refresh", response_model=SourceRefreshRead)
+def refresh_enabled_sources(db: Session = Depends(get_db)) -> RadarRefreshResult:
+    return refresh_all_sources(db)
 
 
 @router.get("/{source_id}", response_model=SourceRead)
@@ -137,9 +176,9 @@ def delete_source(source_id: str, db: Session = Depends(get_db)) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{source_id}/refresh", response_model=FetchRunRead)
-def refresh_source(source_id: str, db: Session = Depends(get_db)):
+@router.post("/{source_id}/refresh", response_model=SourceRefreshRead)
+def refresh_source(source_id: str, db: Session = Depends(get_db)) -> RadarRefreshResult:
     source = db.get(Source, source_id)
     if source is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source not found")
-    return run_source_fetch(db, source)
+    return refresh_single_source(db, source)

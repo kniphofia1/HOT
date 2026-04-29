@@ -12,6 +12,12 @@ export type EventCluster = {
   translatedTitle: string | null;
   translatedSummary: string | null;
   translatedAt: string | null;
+  editorialTitle: string | null;
+  editorialSummary: string | null;
+  editorialCategory: string | null;
+  editorialTagsJson: string[];
+  editorialPriority: number;
+  editorialAt: string | null;
   displayTitle: string;
   displaySummary: string | null;
   hotScore: number;
@@ -22,6 +28,9 @@ export type EventCluster = {
   evidenceCount: number;
   sourceNames: string[];
   sourceTypes: string[];
+  primarySourceName: string | null;
+  primarySourceType: string | null;
+  otherSourceTypeCount: number;
 };
 
 export type EventEvidence = {
@@ -46,6 +55,31 @@ export type FetchRun = {
   itemsFound: number;
   itemsCreated: number;
   errorMessage: string | null;
+};
+
+export type RefreshRun = {
+  status: string;
+  fetchRuns: FetchRun[];
+  clustering: {
+    status: string;
+    candidatesCreated: number;
+    clustersCreated: number;
+    clustersUpdated: number;
+    evidenceCreated: number;
+    aiRunsCreated: number;
+    errors: string[];
+  };
+  editorial: {
+    status: string;
+    clustersEdited: number;
+    clustersSkipped: number;
+    aiRunsCreated: number;
+    errors: string[];
+  };
+  scoring: {
+    clustersScored: number;
+  };
+  errors: string[];
 };
 
 export type AiRun = {

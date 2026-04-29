@@ -36,6 +36,15 @@ class AiTranslation:
     summary: str
 
 
+@dataclass(frozen=True)
+class AiEditorial:
+    title: str
+    summary: str
+    category: str
+    tags: list[str]
+    priority: int
+
+
 class AiProvider(Protocol):
     model: str | None
 
@@ -43,6 +52,18 @@ class AiProvider(Protocol):
         ...
 
     def translate_event(self, *, title: str, summary: str | None) -> AiTranslation:
+        ...
+
+    def edit_event(
+        self,
+        *,
+        title: str,
+        summary: str | None,
+        source_names: list[str],
+        source_types: list[str],
+        source_weight: int,
+        evidence_count: int,
+    ) -> AiEditorial:
         ...
 
 
@@ -147,6 +168,81 @@ class OpenAICompatibleAiProvider:
         translated_summary = str(parsed.get("summary") or summary or title).strip()
         return AiTranslation(title=translated_title, summary=translated_summary)
 
+    def edit_event(
+        self,
+        *,
+        title: str,
+        summary: str | None,
+        source_names: list[str],
+        source_types: list[str],
+        source_weight: int,
+        evidence_count: int,
+    ) -> AiEditorial:
+        payload = {
+            "model": self.model,
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an editor for an AI technology intelligence feed. "
+                        "Rewrite the event for a lightweight Chinese news card. "
+                        "Prioritize major AI/tech news first, then business/investment value, "
+                        "then tracked source updates, then technical project updates. "
+                        "Do not add facts. Do not provide investment advice. "
+                        "Return compact JSON with title, summary, category, tags, priority. "
+                        "category must be one of ai_big_news, commercial_value, watchlist_update, "
+                        "tech_project, other. summary should only say what happened in 1-2 sentences. "
+                        "Keep product names, company names, model names, repo names, and URLs unchanged."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "title": title,
+                            "summary": summary or "",
+                            "sourceNames": source_names,
+                            "sourceTypes": source_types,
+                            "sourceWeight": source_weight,
+                            "evidenceCount": evidence_count,
+                            "priorityGuidance": {
+                                "ai_big_news": "80-100",
+                                "commercial_value": "70-95",
+                                "watchlist_update": "55-85",
+                                "tech_project": "35-75",
+                                "other": "0-50",
+                            },
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+        response = httpx.post(
+            f"{self._base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json=payload,
+            timeout=45,
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        parsed = _parse_json_object(content)
+        editorial_title = str(parsed.get("title") or title).strip() or title
+        editorial_summary = str(parsed.get("summary") or summary or title).strip()
+        category = _normalize_editorial_category(parsed.get("category"))
+        tags = _normalize_tags(parsed.get("tags"), category=category)
+        priority = _clamp_priority(parsed.get("priority", 0))
+        return AiEditorial(
+            title=editorial_title,
+            summary=editorial_summary,
+            category=category,
+            tags=tags,
+            priority=priority,
+        )
+
 
 def build_ai_provider(settings: Settings | None = None) -> AiProvider:
     settings = settings or get_settings()
@@ -162,6 +258,42 @@ def _clamp_confidence(value: object) -> int:
     except (TypeError, ValueError):
         number = 70
     return max(0, min(100, number))
+
+
+def _clamp_priority(value: object) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = 0
+    return max(0, min(100, number))
+
+
+def _normalize_editorial_category(value: object) -> str:
+    category = str(value or "").strip()
+    allowed = {"ai_big_news", "commercial_value", "watchlist_update", "tech_project", "other"}
+    return category if category in allowed else "other"
+
+
+def _normalize_tags(value: object, *, category: str) -> list[str]:
+    if not isinstance(value, list):
+        value = []
+    tags: list[str] = []
+    for item in value:
+        tag = str(item).strip()
+        if tag and tag not in tags:
+            tags.append(tag)
+        if len(tags) >= 5:
+            break
+    if not tags:
+        fallback = {
+            "ai_big_news": "AI大新闻",
+            "commercial_value": "商业价值",
+            "watchlist_update": "重点源",
+            "tech_project": "技术项目",
+            "other": "其他",
+        }
+        tags.append(fallback[category])
+    return tags
 
 
 def _parse_json_object(content: str) -> dict:

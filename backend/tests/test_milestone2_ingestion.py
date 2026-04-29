@@ -3,7 +3,9 @@ from dataclasses import dataclass
 import pytest
 from sqlalchemy import select
 
+from app.db.models import EventCluster, Evidence
 from app.db.models import FetchRun, MetricSnapshot, RawItem, Source, WebMonitorTarget, WebpageSnapshot
+from app.services.ai import AiCandidate, AiClusterSummary, AiEditorial
 from app.services.connector_runner import run_enabled_sources, run_source_fetch
 
 
@@ -18,6 +20,36 @@ class FakeResponse:
 
     def raise_for_status(self):
         return None
+
+
+class FakeFullRefreshAiProvider:
+    model = "fake-refresh-model"
+
+    def summarize_cluster(self, candidates: list[AiCandidate]) -> AiClusterSummary:
+        return AiClusterSummary(
+            title=candidates[0].title,
+            summary=candidates[0].content_text or candidates[0].title,
+            confidence=88,
+            candidate_ids=[candidate.id for candidate in candidates],
+        )
+
+    def edit_event(
+        self,
+        *,
+        title: str,
+        summary: str | None,
+        source_names: list[str],
+        source_types: list[str],
+        source_weight: int,
+        evidence_count: int,
+    ) -> AiEditorial:
+        return AiEditorial(
+            title=f"精选：{title}",
+            summary=summary or title,
+            category="ai_big_news",
+            tags=["AI大新闻"],
+            priority=90,
+        )
 
 
 RSS_FEED = b"""<?xml version="1.0" encoding="UTF-8" ?>
@@ -287,5 +319,51 @@ def test_refresh_enabled_sources_api_isolates_failures(monkeypatch, client):
     response = client.post("/api/sources/refresh")
 
     assert response.status_code == 200
-    statuses = sorted(run["status"] for run in response.json())
+    payload = response.json()
+    statuses = sorted(run["status"] for run in payload["fetchRuns"])
     assert statuses == ["failed", "success"]
+    assert payload["status"] == "partial"
+
+
+def test_refresh_enabled_sources_api_runs_full_event_pipeline(monkeypatch, client, db_session):
+    monkeypatch.setattr("app.connectors.rss.httpx.get", lambda url, **kwargs: FakeResponse(content=RSS_FEED))
+    monkeypatch.setattr("app.services.clustering.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    monkeypatch.setattr("app.services.editorial.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    client.post(
+        "/api/sources",
+        json={"type": "rss", "name": "Good", "url": "https://example.com/good", "configJson": {}},
+    )
+
+    response = client.post("/api/sources/refresh")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "success"
+    assert payload["fetchRuns"][0]["itemsCreated"] == 1
+    assert payload["clustering"]["clustersCreated"] == 1
+    assert payload["clustering"]["evidenceCreated"] == 1
+    assert payload["editorial"]["clustersEdited"] == 1
+    assert payload["scoring"]["clustersScored"] == 1
+    cluster = db_session.scalar(select(EventCluster))
+    assert cluster is not None
+    assert cluster.editorial_title == "精选：First item"
+    assert db_session.scalar(select(Evidence)) is not None
+
+
+def test_refresh_single_source_api_runs_full_event_pipeline(monkeypatch, client):
+    monkeypatch.setattr("app.connectors.rss.httpx.get", lambda url, **kwargs: FakeResponse(content=RSS_FEED))
+    monkeypatch.setattr("app.services.clustering.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    monkeypatch.setattr("app.services.editorial.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    created = client.post(
+        "/api/sources",
+        json={"type": "rss", "name": "Good", "url": "https://example.com/good", "configJson": {}},
+    ).json()
+
+    response = client.post(f"/api/sources/{created['id']}/refresh")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "success"
+    assert payload["fetchRuns"][0]["itemsCreated"] == 1
+    assert payload["clustering"]["clustersCreated"] == 1
+    assert payload["editorial"]["clustersEdited"] == 1
