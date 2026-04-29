@@ -16,8 +16,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     <section className="pageStack">
       <header className="pageHeader">
         <p className="eyebrow">{formatDateTime(event.lastSeenAt)}</p>
-        <h1>{event.title}</h1>
-        <p>{event.summary || "暂无摘要"}</p>
+        <h1>{event.displayTitle}</h1>
+        <p>{event.displaySummary || "暂无摘要"}</p>
       </header>
 
       <div className="metricStrip">

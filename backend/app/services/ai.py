@@ -30,10 +30,19 @@ class AiClusterSummary:
     candidate_ids: list[str]
 
 
+@dataclass(frozen=True)
+class AiTranslation:
+    title: str
+    summary: str
+
+
 class AiProvider(Protocol):
     model: str | None
 
     def summarize_cluster(self, candidates: list[AiCandidate]) -> AiClusterSummary:
+        ...
+
+    def translate_event(self, *, title: str, summary: str | None) -> AiTranslation:
         ...
 
 
@@ -55,7 +64,9 @@ class OpenAICompatibleAiProvider:
                     "role": "system",
                     "content": (
                         "You merge intelligence items into one event. "
-                        "Return compact JSON with title, summary, confidence, candidate_ids."
+                        "Return compact JSON with title, summary, confidence, candidate_ids. "
+                        "The title and summary must be written in concise Simplified Chinese. "
+                        "Keep product names, model names, company names, repo names, and URLs unchanged."
                     ),
                 },
                 {
@@ -87,7 +98,7 @@ class OpenAICompatibleAiProvider:
         response.raise_for_status()
         data = response.json()
         content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
+        parsed = _parse_json_object(content)
         candidate_ids = [str(candidate_id) for candidate_id in parsed.get("candidate_ids", [])]
         return AiClusterSummary(
             title=str(parsed.get("title") or candidates[0].title),
@@ -95,6 +106,46 @@ class OpenAICompatibleAiProvider:
             confidence=_clamp_confidence(parsed.get("confidence", 70)),
             candidate_ids=candidate_ids,
         )
+
+    def translate_event(self, *, title: str, summary: str | None) -> AiTranslation:
+        payload = {
+            "model": self.model,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Translate intelligence event fields into concise Simplified Chinese. "
+                        "Keep product names, model names, company names, repo names, and URLs unchanged. "
+                        "Do not add facts or analysis. Return compact JSON with title and summary."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "title": title,
+                            "summary": summary or "",
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        }
+        response = httpx.post(
+            f"{self._base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json=payload,
+            timeout=60,
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        parsed = _parse_json_object(content)
+        translated_title = str(parsed.get("title") or title).strip() or title
+        translated_summary = str(parsed.get("summary") or summary or title).strip()
+        return AiTranslation(title=translated_title, summary=translated_summary)
 
 
 def build_ai_provider(settings: Settings | None = None) -> AiProvider:
@@ -111,3 +162,16 @@ def _clamp_confidence(value: object) -> int:
     except (TypeError, ValueError):
         number = 70
     return max(0, min(100, number))
+
+
+def _parse_json_object(content: str) -> dict:
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        parsed = json.loads(cleaned)
+    if not isinstance(parsed, dict):
+        raise ValueError("AI response must be a JSON object")
+    return parsed

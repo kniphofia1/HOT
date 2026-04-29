@@ -62,6 +62,28 @@ Milestone 1-4 已完成。Milestone 5 只实现 Markdown 简报闭环，不得�
 - [x] 中文内容、长标题、失效链接、空 `Evidence` 都有稳定降级表现。
 - [x] 没有实现 PDF、Word 或其他 v0.1 禁止项。
 
+## 验收后体验补丁：中文翻译展示
+
+Milestone 5 完成后，允许收口一个不扩大产品范围的体验补丁：为已有 `EventCluster` 增加简体中文展示缓存，并让雷达 UI 与 Markdown 简报优先展示中文。
+
+- [x] 新增 `EventCluster` 翻译缓存字段。
+- [x] 新增批量和单事件翻译 API。
+- [x] 翻译调用写入 `AiRunLog`。
+- [x] 翻译失败时保留原始标题和摘要。
+- [x] 雷达列表、事件详情、简报选择页和 Markdown 简报优先使用中文展示字段。
+- [x] 没有实现 PDF、Word、新平台、多租户、团队权限或登录态抓取。
+
+## 验收后 UI 补丁：信源管理配置台
+
+将 `Sources / 信源管理` 从静态说明页升级为按类型配置的本地信源管理界面，不改变 v0.1 抓取范围。
+
+- [x] 每类 Source 单独展示配置卡片。
+- [x] 支持 RSS、公开网页、Hacker News、GitHub repo、GitHub release 的新增表单。
+- [x] 支持已有 Source 的启停、立即刷新和确认删除。
+- [x] 展示最近抓取时间、最后错误、刷新频率和权重。
+- [x] 热榜信源只作为规划入口，不在 connector 落地前创建真实 Source。
+- [x] YouTube placeholder 只展示占位说明，不提供真实抓取入口。
+
 ## 命名要求
 
 代码命名、数据库表名、字段名、API 路由使用英文。

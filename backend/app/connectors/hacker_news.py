@@ -23,8 +23,8 @@ class HackerNewsConnector(BaseConnector):
     def fetch(self, db: Session, source: Source) -> ConnectorFetchResult:
         list_type = str(source.config_json.get("listType", "top"))
         limit = int(source.config_json.get("limit", 30))
-        if list_type not in {"top", "new", "best"}:
-            raise ConnectorError("HN listType must be top, new, or best")
+        if list_type not in {"top", "new", "best", "show"}:
+            raise ConnectorError("HN listType must be top, new, best, or show")
 
         story_ids = httpx.get(f"{HN_BASE_URL}/{list_type}stories.json", timeout=20.0).json()
         items: list[RawItemPayload] = []

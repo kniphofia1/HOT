@@ -17,6 +17,18 @@ async function scoreClustersAction() {
   revalidatePath("/");
 }
 
+async function translateClustersAction() {
+  "use server";
+  await postJson<{
+    clustersTranslated: number;
+    clustersSkipped: number;
+    aiRunsCreated: number;
+    errors: string[];
+    status: string;
+  }>("/api/clusters/translate");
+  revalidatePath("/");
+}
+
 export default async function RadarPage({
   searchParams,
 }: {
@@ -92,6 +104,11 @@ export default async function RadarPage({
             重新评分
           </button>
         </form>
+        <form action={translateClustersAction}>
+          <button className="secondaryButton" type="submit">
+            翻译中文
+          </button>
+        </form>
       </div>
 
       {error ? <StatePanel title="无法读取事件" detail={error} /> : null}
@@ -109,11 +126,11 @@ export default async function RadarPage({
                 <div className="eventMeta">{item.sourceNames.join(" / ") || "未记录来源"}</div>
                 <div className="eventTitleRow">
                   <h2>
-                    <Link href={`/events/${item.id}`}>{item.title}</Link>
+                    <Link href={`/events/${item.id}`}>{item.displayTitle}</Link>
                   </h2>
                   <span className="scoreBadge">{item.hotScore}</span>
                 </div>
-                <p>{item.summary || "暂无摘要"}</p>
+                <p>{item.displaySummary || "暂无摘要"}</p>
                 <div className="tagRow">
                   {item.sourceTypes.map((type) => (
                     <span key={type}>{type}</span>

@@ -94,7 +94,9 @@ def generate_markdown(
     ]
     if clusters:
         for index, cluster in enumerate(clusters, start=1):
-            lines.append(f"{index}. {cluster.title}（热度 {cluster.hot_score}，置信度 {cluster.confidence}）")
+            lines.append(
+                f"{index}. {_cluster_title(cluster)}（热度 {cluster.hot_score}，置信度 {cluster.confidence}）"
+            )
     else:
         lines.append("暂无选中的事件。")
 
@@ -110,7 +112,7 @@ def _event_markdown(index: int, cluster: EventCluster, manual_note: str) -> list
     reasons = cluster.score_reason_json or []
     evidence_items = getattr(cluster, "_brief_evidence", [])
     lines = [
-        f"### {index}. {_clean_line(cluster.title)}",
+        f"### {index}. {_clean_line(_cluster_title(cluster))}",
         "",
         f"- 热度：{cluster.hot_score}",
         f"- 置信度：{cluster.confidence}",
@@ -119,7 +121,7 @@ def _event_markdown(index: int, cluster: EventCluster, manual_note: str) -> list
         "",
         "**事件摘要**",
         "",
-        cluster.summary or "暂无摘要。",
+        _cluster_summary(cluster) or "暂无摘要。",
         "",
         "**推荐理由**",
         "",
@@ -179,6 +181,14 @@ def _format_datetime(value: datetime | None) -> str:
 
 def _clean_line(value: str) -> str:
     return " ".join(value.replace("\r", " ").replace("\n", " ").split())
+
+
+def _cluster_title(cluster: EventCluster) -> str:
+    return cluster.translated_title or cluster.title
+
+
+def _cluster_summary(cluster: EventCluster) -> str | None:
+    return cluster.translated_summary or cluster.summary
 
 
 def _is_http_url(value: str | None) -> bool:

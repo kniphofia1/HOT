@@ -6,6 +6,10 @@
 
 不得实现 v0.1 之外的 PDF、Word、国内平台、X、YouTube 真实抓取、评论抽样、多租户或登录态抓取。
 
+当前验收后补丁：**v0.1 中文翻译展示收口**，只允许为已有 `EventCluster` 增加简体中文展示缓存、翻译触发入口、Markdown 简报中文优先展示和失败降级记录，不得扩大到新平台或新导出格式。
+
+当前 UI 补丁：**v0.1 信源管理配置台**，只允许把已有 Source 类型和热榜规划入口整理成卡片式配置界面，不得借机实现 v0.1 禁止的平台或导出格式。
+
 ## Milestone 1：工程底座与数据层
 
 状态：completed
@@ -106,3 +110,25 @@
 - [x] 内置 AI/科技 与 投资/产业 两个模板
 - [x] 重新编辑点评后可重新生成 Markdown
 - [x] 中文内容、长标题、失效链接、空 `Evidence` 都有稳定降级表现
+
+## v0.1 中文翻译展示收口
+
+状态：completed
+
+- [x] 为 `EventCluster` 增加 `translatedTitle`、`translatedSummary`、`translatedAt` 展示缓存
+- [x] 提供批量与单事件翻译 API
+- [x] 雷达列表、事件详情和简报选择页优先展示中文翻译，缺失时回退原文
+- [x] Markdown 简报优先使用中文翻译标题和摘要
+- [x] 翻译成功或失败均记录 `AiRunLog`，失败时不覆盖原始事件
+- [x] 没有实现 PDF、Word、新平台、多租户或登录态抓取
+
+## v0.1 信源管理配置台
+
+状态：completed
+
+- [x] RSS、公开网页、Hacker News、GitHub repo、GitHub release 分别提供卡片式新增表单
+- [x] 每类信源卡片内展示已有实例、启停状态、刷新频率、权重、最近抓取时间和最后错误
+- [x] 支持单个 Source 启用/停用、立即刷新和确认删除
+- [x] 热榜信源作为规划入口展示，等待 `hotlist` Connector 落地后启用创建
+- [x] YouTube placeholder 只展示占位状态，不提供真实抓取配置
+- [x] Hacker News 支持 `top`、`new`、`best`、`show` 列表

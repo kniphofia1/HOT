@@ -64,6 +64,7 @@ class GithubReleaseConnector(BaseConnector):
             release_id = str(release["id"])
             tag_name = release.get("tag_name") or release_id
             html_url = release.get("html_url")
+            author = release.get("author") or {}
             download_count = sum(int(asset.get("download_count") or 0) for asset in release.get("assets", []))
             items.append(
                 RawItemPayload(
@@ -71,7 +72,7 @@ class GithubReleaseConnector(BaseConnector):
                     source_url=html_url,
                     title=f"GitHub release: {owner}/{repo} {tag_name}",
                     content_text=release.get("body"),
-                    author=release.get("author", {}).get("login"),
+                    author=author.get("login"),
                     raw_payload_json=release,
                     content_hash=stable_hash("github_release", owner, repo, release_id, tag_name),
                     metrics=[MetricPayload("github_release_downloads", download_count)],

@@ -224,6 +224,144 @@ a {
   padding: 22px;
 }
 
+.sourceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.sourcePanel {
+  align-content: start;
+}
+
+.sourcePanelHeader,
+.sourceInstanceTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sourcePanelHeader {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.sourceForm {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sourceFormGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.fieldStack {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #aeb8cc;
+  font-size: 13px;
+}
+
+.fieldStack input,
+.fieldStack select {
+  width: 100%;
+  min-width: 0;
+}
+
+.sourceInstanceList {
+  display: grid;
+  gap: 10px;
+}
+
+.sourceInstance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sourceInstanceMain,
+.sourceActions,
+.deleteSourceForm {
+  display: grid;
+  gap: 8px;
+}
+
+.sourceInstanceMain {
+  min-width: 0;
+}
+
+.sourceInstanceMain small {
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sourceActions {
+  justify-items: end;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid rgba(32, 214, 208, 0.28);
+  border-radius: 999px;
+  background: rgba(32, 214, 208, 0.12);
+  color: #9ffbf5;
+  white-space: nowrap;
+}
+
+.statusBadge.off {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #9da9bd;
+}
+
+.mutedNote {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.errorText {
+  color: #ffb4b4;
+}
+
+.dangerButton {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.13);
+  color: #ffd0d0;
+}
+
+.confirmLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #aeb8cc;
+  font-size: 12px;
+}
+
+.confirmLine input {
+  min-width: 16px;
+  min-height: 16px;
+}
+
 .toolbar {
   display: flex;
   align-items: flex-end;

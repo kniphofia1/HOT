@@ -219,6 +219,10 @@ def _update_cluster(
     candidates: list[EventCandidate],
 ) -> EventCluster:
     first_seen, last_seen = _candidate_seen_window(db, candidates)
+    if cluster.title != summary.title or cluster.summary != summary.summary:
+        cluster.translated_title = None
+        cluster.translated_summary = None
+        cluster.translated_at = None
     cluster.title = summary.title
     cluster.summary = summary.summary
     cluster.confidence = summary.confidence

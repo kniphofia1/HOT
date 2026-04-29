@@ -9,6 +9,7 @@ from app.db.models import EventCluster, Evidence, RawItem, Source
 from app.db.session import get_db
 from app.services.clustering import ClusterRunResult, run_event_clustering
 from app.services.scoring import ScoreRunResult, recompute_hot_scores
+from app.services.translation import TranslationRunResult, translate_event_cluster, translate_event_clusters
 
 
 router = APIRouter(prefix="/api/clusters", tags=["clusters"])
@@ -30,6 +31,11 @@ class EventClusterRead(BaseModel):
     id: str
     title: str
     summary: str | None
+    translated_title: str | None = Field(alias="translatedTitle")
+    translated_summary: str | None = Field(alias="translatedSummary")
+    translated_at: datetime | None = Field(alias="translatedAt")
+    display_title: str = Field(alias="displayTitle")
+    display_summary: str | None = Field(alias="displaySummary")
     hot_score: int = Field(alias="hotScore")
     score_reason_json: list = Field(alias="scoreReasonJson")
     confidence: int
@@ -65,6 +71,16 @@ class ScoreRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+class TranslationRunRead(BaseModel):
+    status: str
+    clusters_translated: int = Field(alias="clustersTranslated")
+    clusters_skipped: int = Field(alias="clustersSkipped")
+    ai_runs_created: int = Field(alias="aiRunsCreated")
+    errors: list[str]
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
 @router.post("/run", response_model=ClusterRunRead)
 def run_clustering(limit: int = 100, db: Session = Depends(get_db)) -> ClusterRunResult:
     return run_event_clustering(db, limit=limit)
@@ -73,6 +89,15 @@ def run_clustering(limit: int = 100, db: Session = Depends(get_db)) -> ClusterRu
 @router.post("/score", response_model=ScoreRunRead)
 def score_clusters(db: Session = Depends(get_db)) -> ScoreRunResult:
     return recompute_hot_scores(db)
+
+
+@router.post("/translate", response_model=TranslationRunRead)
+def translate_clusters(
+    force: bool = False,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> TranslationRunResult:
+    return translate_event_clusters(db, force=force, limit=limit)
 
 
 @router.get("", response_model=list[EventClusterRead])
@@ -102,6 +127,18 @@ def list_clusters(
         ]
     clusters = _sort_clusters(clusters, sort)
     return [_cluster_read(db, cluster) for cluster in clusters]
+
+
+@router.post("/{cluster_id}/translate", response_model=TranslationRunRead)
+def translate_cluster(
+    cluster_id: str,
+    force: bool = False,
+    db: Session = Depends(get_db),
+) -> TranslationRunResult:
+    cluster = db.get(EventCluster, cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="EventCluster not found")
+    return translate_event_cluster(db, cluster, force=force)
 
 
 @router.get("/{cluster_id}", response_model=EventClusterDetailRead)
@@ -149,6 +186,11 @@ def _cluster_read(db: Session, cluster: EventCluster) -> dict:
         "id": cluster.id,
         "title": cluster.title,
         "summary": cluster.summary,
+        "translatedTitle": cluster.translated_title,
+        "translatedSummary": cluster.translated_summary,
+        "translatedAt": cluster.translated_at,
+        "displayTitle": cluster.translated_title or cluster.title,
+        "displaySummary": cluster.translated_summary or cluster.summary,
         "hotScore": cluster.hot_score,
         "scoreReasonJson": cluster.score_reason_json,
         "confidence": cluster.confidence,

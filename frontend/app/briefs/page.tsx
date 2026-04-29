@@ -83,7 +83,7 @@ export default async function BriefsPage() {
                   <article className="briefEventItem" key={cluster.id}>
                     <label className="checkboxLine">
                       <input name="eventClusterIds" type="checkbox" value={cluster.id} />
-                      <span>{cluster.title}</span>
+                      <span>{cluster.displayTitle}</span>
                     </label>
                     <div className="eventMeta">
                       热度 {cluster.hotScore} / Evidence {cluster.evidenceCount} / {formatDateTime(cluster.lastSeenAt)}

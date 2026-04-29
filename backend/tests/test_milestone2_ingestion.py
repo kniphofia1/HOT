@@ -126,6 +126,41 @@ def test_hacker_news_connector_writes_raw_items_and_metrics(monkeypatch, db_sess
     assert {metric.metric_type for metric in metrics} == {"hn_score", "hn_comments"}
 
 
+def test_hacker_news_connector_supports_show_stories(monkeypatch, db_session):
+    def fake_get(url, **kwargs):
+        if url.endswith("showstories.json"):
+            return FakeResponse(payload=[300])
+        return FakeResponse(
+            payload={
+                "id": 300,
+                "type": "story",
+                "title": "Show HN: Example",
+                "url": "https://example.com/show",
+                "score": 9,
+                "descendants": 2,
+                "by": "maker",
+            }
+        )
+
+    monkeypatch.setattr("app.connectors.hacker_news.httpx.get", fake_get)
+    source = Source(
+        type="hacker_news",
+        name="HN show",
+        url="https://news.ycombinator.com/show",
+        config_json={"listType": "show", "limit": 1},
+    )
+    db_session.add(source)
+    db_session.commit()
+
+    run = run_source_fetch(db_session, source)
+
+    assert run.status == "success"
+    assert run.items_created == 1
+    item = db_session.scalar(select(RawItem))
+    assert item is not None
+    assert item.title == "Show HN: Example"
+
+
 def test_github_repo_and_release_connectors_write_metrics(monkeypatch, db_session):
     def fake_get(url, headers=None, timeout=None):
         if url.endswith("/releases"):
@@ -136,7 +171,7 @@ def test_github_repo_and_release_connectors_write_metrics(monkeypatch, db_sessio
                         "tag_name": "v1.0.0",
                         "html_url": "https://github.com/example/repo/releases/tag/v1.0.0",
                         "body": "Release body",
-                        "author": {"login": "maintainer"},
+                        "author": None,
                         "assets": [{"download_count": 3}, {"download_count": 4}],
                     }
                 ]
