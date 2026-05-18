@@ -227,11 +227,22 @@ const sourceCards: SourceCard[] = [
   {
     type: "x_recent_search",
     title: "X Recent Search",
-    summary: "通过 X 官方 recent search API 抓取公开讨论，需要付费 API 权限和 bearer token 环境变量。",
-    presets: ["Official API", "Bearer Token", "Metrics"],
+    summary: "通过 X 官方 API 抓取公开账号时间线或 recent search，需要 API 权限和 bearer token 环境变量。",
+    presets: ["Official API", "User Timeline", "Recent Search", "Metrics"],
     fields: [
       { name: "name", label: "名称", type: "text", placeholder: "X AI search", required: true },
-      { name: "query", label: "搜索语句", type: "text", placeholder: "open source AI lang:en", required: true },
+      {
+        name: "fetchMode",
+        label: "抓取模式",
+        type: "select",
+        defaultValue: "user_timelines",
+        options: [
+          { label: "账号时间线", value: "user_timelines" },
+          { label: "关键词搜索", value: "recent_search" },
+        ],
+      },
+      { name: "handles", label: "账号列表", type: "textarea", placeholder: "OpenAIDevs, ClaudeDevs, sama" },
+      { name: "query", label: "搜索语句", type: "text", placeholder: "open source AI lang:en" },
       { name: "bearerTokenEnv", label: "Token 环境变量", type: "text", defaultValue: "X_BEARER_TOKEN" },
       { name: "limit", label: "数量", type: "number", defaultValue: 25, min: 1, max: 100 },
       { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 60, min: 5 },
@@ -623,7 +634,9 @@ function sourceConfigSummary(source: Source): string {
     )}`;
   }
   if (source.type === "x_recent_search") {
-    return `Query ${stringFromConfig(source, "query", "未配置")} / Env ${stringFromConfig(
+    const handles = source.configJson.handles;
+    const handleCount = Array.isArray(handles) ? handles.length : 0;
+    return `Mode ${stringFromConfig(source, "fetchMode", "auto")} / Handles ${handleCount} / Query ${stringFromConfig(source, "query", "未配置")} / Env ${stringFromConfig(
       source,
       "bearerTokenEnv",
       "X_BEARER_TOKEN",
@@ -742,8 +755,12 @@ function configJsonFor(type: string, formData: FormData): Record<string, unknown
   }
   if (type === "x_recent_search") {
     return {
-      query: stringValue(formData, "query"),
+      query: optionalStringValue(formData, "query"),
+      handles: csvArrayValue(formData, "handles"),
+      fetchMode: stringValue(formData, "fetchMode", "user_timelines"),
       bearerTokenEnv: stringValue(formData, "bearerTokenEnv", "X_BEARER_TOKEN"),
+      excludeRetweets: true,
+      excludeReplies: true,
       limit: numberValue(formData, "limit", 25),
     };
   }
@@ -836,6 +853,13 @@ function jsonArrayValue(formData: FormData, key: string): unknown[] {
   } catch {
     return [];
   }
+}
+
+function csvArrayValue(formData: FormData, key: string): string[] {
+  return stringValue(formData, key)
+    .split(/[\n,]/)
+    .map((item) => item.trim().replace(/^@/, ""))
+    .filter(Boolean);
 }
 
 function numberValue(formData: FormData, key: string, fallback: number): number {

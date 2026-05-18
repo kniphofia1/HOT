@@ -13,6 +13,16 @@ from app.connectors.utils import parse_datetime, stable_hash
 from app.db.models import Source
 
 
+X_API_BASE = "https://api.x.com/2"
+X_TWEET_FIELDS = (
+    "created_at,author_id,public_metrics,entities,lang,referenced_tweets,attachments,"
+    "conversation_id,note_tweet"
+)
+X_EXPANSIONS = "author_id,attachments.media_keys"
+X_USER_FIELDS = "id,name,username,verified,verified_type,profile_image_url,public_metrics,url"
+X_MEDIA_FIELDS = "media_key,type,url,preview_image_url,width,height,public_metrics,alt_text"
+
+
 class XRecentSearchConnector(BaseConnector):
     metadata = ConnectorMetadata(
         type="x_recent_search",
@@ -23,16 +33,23 @@ class XRecentSearchConnector(BaseConnector):
 
     def fetch(self, db: Session, source: Source) -> ConnectorFetchResult:
         token = _env_secret(source, "bearerTokenEnv", "X_BEARER_TOKEN")
+        handles = _x_handles(source)
+        fetch_mode = str(source.config_json.get("fetchMode") or "auto").strip()
+        if handles and fetch_mode != "recent_search":
+            return self._fetch_user_timelines(db, source, token, handles)
+        return self._fetch_recent_search(db, source, token)
+
+    def _fetch_recent_search(self, db: Session, source: Source, token: str) -> ConnectorFetchResult:
         query = _x_query(source)
         limit = _limit(source, default=25, max_value=100)
         page_limit = _int_config(source, "pageLimit", default=1, min_value=1, max_value=5)
         params: dict[str, Any] = {
             "query": query,
             "max_results": max(10, min(100, limit)),
-            "tweet.fields": "created_at,author_id,public_metrics,entities,lang,referenced_tweets,attachments,conversation_id",
-            "expansions": "author_id,attachments.media_keys",
-            "user.fields": "id,name,username,verified,verified_type,profile_image_url,public_metrics,url",
-            "media.fields": "media_key,type,url,preview_image_url,width,height,public_metrics",
+            "tweet.fields": X_TWEET_FIELDS,
+            "expansions": X_EXPANSIONS,
+            "user.fields": X_USER_FIELDS,
+            "media.fields": X_MEDIA_FIELDS,
         }
         latest_tweet_id = str(source.config_json.get("latestTweetId") or "").strip()
         if latest_tweet_id:
@@ -49,7 +66,7 @@ class XRecentSearchConnector(BaseConnector):
             if next_token:
                 request_params["next_token"] = next_token
             response = httpx.get(
-                "https://api.x.com/2/tweets/search/recent",
+                f"{X_API_BASE}/tweets/search/recent",
                 headers={"Authorization": f"Bearer {token}"},
                 params=request_params,
                 timeout=20.0,
@@ -62,8 +79,108 @@ class XRecentSearchConnector(BaseConnector):
             if len(items) >= limit or not next_token:
                 break
         if newest_id:
-            source.config_json = {**source.config_json, "latestTweetId": newest_id}
+            source.config_json = {
+                **source.config_json,
+                "latestTweetId": newest_id,
+                "lastXFetchMode": "recent_search",
+            }
             db.add(source)
+        return ConnectorFetchResult(items=items[:limit])
+
+    def _fetch_user_timelines(
+        self,
+        db: Session,
+        source: Source,
+        token: str,
+        handles: list[str],
+    ) -> ConnectorFetchResult:
+        limit = _limit(source, default=50, max_value=100)
+        page_limit = _int_config(source, "pageLimit", default=1, min_value=1, max_value=3)
+        default_per_handle = max(5, min(100, (limit + len(handles) - 1) // len(handles)))
+        per_handle_limit = _int_config(source, "perHandleLimit", default=default_per_handle, min_value=5, max_value=100)
+        user_ids_by_handle = _string_map(source.config_json.get("userIdsByHandle"))
+        latest_ids_by_handle = _string_map(source.config_json.get("latestTweetIdsByHandle"))
+        newest_ids_by_handle: dict[str, str] = {}
+        handle_errors: dict[str, str] = {}
+        successful_handles = 0
+        items: list[RawItemPayload] = []
+
+        for handle in handles:
+            if len(items) >= limit:
+                break
+            handle_key = handle.lower()
+            try:
+                user_id = user_ids_by_handle.get(handle_key)
+                if not user_id:
+                    user_payload = _x_get(
+                        f"{X_API_BASE}/users/by/username/{handle}",
+                        token,
+                        params={"user.fields": X_USER_FIELDS},
+                    )
+                    user = user_payload.get("data") or {}
+                    user_id = str(user.get("id") or "").strip()
+                    if not user_id:
+                        raise ConnectorError(f"X user lookup returned no id for @{handle}")
+                    username = str(user.get("username") or handle).strip() or handle
+                    user_ids_by_handle[username.lower()] = user_id
+                    user_ids_by_handle[handle_key] = user_id
+
+                params: dict[str, Any] = {
+                    "max_results": per_handle_limit,
+                    "tweet.fields": X_TWEET_FIELDS,
+                    "expansions": X_EXPANSIONS,
+                    "user.fields": X_USER_FIELDS,
+                    "media.fields": X_MEDIA_FIELDS,
+                }
+                excludes = []
+                if source.config_json.get("excludeRetweets", True):
+                    excludes.append("retweets")
+                if source.config_json.get("excludeReplies", True):
+                    excludes.append("replies")
+                if excludes:
+                    params["exclude"] = ",".join(excludes)
+                latest_tweet_id = latest_ids_by_handle.get(handle_key)
+                if latest_tweet_id:
+                    params["since_id"] = latest_tweet_id
+                else:
+                    hours = _int_config(source, "lookbackHours", default=24, min_value=1, max_value=168)
+                    params["start_time"] = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
+
+                next_token: str | None = None
+                newest_id: str | None = None
+                for _ in range(page_limit):
+                    request_params = dict(params)
+                    if next_token:
+                        request_params["pagination_token"] = next_token
+                    payload = _x_get(f"{X_API_BASE}/users/{user_id}/tweets", token, params=request_params)
+                    items.extend(_x_items_from_payload(source, payload, remaining=limit - len(items)))
+                    newest_id = _max_id(newest_id, *((post.get("id") for post in payload.get("data", []))))
+                    next_token = (payload.get("meta") or {}).get("next_token")
+                    if len(items) >= limit or not next_token:
+                        break
+                successful_handles += 1
+                if newest_id:
+                    newest_ids_by_handle[handle_key] = newest_id
+            except ConnectorError as exc:
+                handle_errors[handle] = str(exc)
+
+        if successful_handles == 0 and handle_errors:
+            raise ConnectorError("X user timeline failed for all handles: " + "; ".join(f"@{key}: {value}" for key, value in handle_errors.items()))
+
+        updated_config = {
+            **source.config_json,
+            "fetchMode": "user_timelines",
+            "lastXFetchMode": "user_timelines",
+            "userIdsByHandle": user_ids_by_handle,
+            "latestTweetIdsByHandle": {**latest_ids_by_handle, **newest_ids_by_handle},
+        }
+        if handle_errors:
+            updated_config["xHandleErrors"] = handle_errors
+        else:
+            updated_config.pop("xHandleErrors", None)
+        source.config_json = updated_config
+        db.add(source)
+        items.sort(key=lambda item: item.published_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
         return ConnectorFetchResult(items=items[:limit])
 
 
@@ -80,6 +197,7 @@ def _x_items_from_payload(source: Source, payload: dict[str, Any], *, remaining:
     }
     items: list[RawItemPayload] = []
     for post in payload.get("data", [])[:remaining]:
+        text = _x_post_text(post)
         author = users_by_id.get(str(post.get("author_id")))
         media = [
             media_by_key[key]
@@ -103,16 +221,27 @@ def _x_items_from_payload(source: Source, payload: dict[str, Any], *, remaining:
             RawItemPayload(
                 external_id=str(post.get("id")),
                 source_url=post_url,
-                title=_first_line(post.get("text") or "X Post"),
-                content_text=post.get("text"),
+                title=_first_line(text or "X Post"),
+                content_text=text,
                 author=str(display_author) if display_author else None,
                 published_at=parse_datetime(post.get("created_at")),
                 raw_payload_json=raw_payload,
-                content_hash=stable_hash(source.id, post.get("id"), post.get("text")),
+                content_hash=stable_hash(source.id, post.get("id"), text),
                 metrics=metric_payloads,
             )
         )
     return items
+
+
+def _x_get(url: str, token: str, *, params: dict[str, Any]) -> dict[str, Any]:
+    response = httpx.get(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        params=params,
+        timeout=20.0,
+    )
+    _raise_for_status(response, "X")
+    return response.json()
 
 
 def _x_query(source: Source) -> str:
@@ -128,6 +257,47 @@ def _x_query(source: Source) -> str:
     if source.config_json.get("excludeReplies", True) and "-is:reply" not in query:
         query = f"{query} -is:reply"
     return query
+
+
+def _x_handles(source: Source) -> list[str]:
+    handles = source.config_json.get("handles")
+    if isinstance(handles, str):
+        raw_values = handles.replace("\n", ",").split(",")
+    elif isinstance(handles, list):
+        raw_values = [str(value) for value in handles]
+    else:
+        raw_values = []
+    single_handle = source.config_json.get("handle")
+    if single_handle:
+        raw_values.append(str(single_handle))
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in raw_values:
+        handle = value.strip().lstrip("@")
+        if not handle or not handle.replace("_", "").isalnum() or len(handle) > 15:
+            continue
+        key = handle.lower()
+        if key in seen:
+            continue
+        cleaned.append(handle)
+        seen.add(key)
+    return cleaned
+
+
+def _x_post_text(post: dict[str, Any]) -> str:
+    note_tweet = post.get("note_tweet")
+    if isinstance(note_tweet, dict):
+        text = note_tweet.get("text")
+        if isinstance(text, str) and text.strip():
+            return text
+    text = post.get("text")
+    return text if isinstance(text, str) else ""
+
+
+def _string_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(key).lower(): str(item) for key, item in value.items() if item is not None and str(item).strip()}
 
 
 def _max_id(current: str | None, *values: object) -> str | None:

@@ -64,6 +64,8 @@ def test_configure_default_sources_enables_registered_connectors(client):
     assert claude_code_source["configJson"]["repo"] == "claude-code"
     product_x_source = next(source for source in payload if source["name"] == "X AI Product Company Accounts")
     assert product_x_source["configJson"]["sourceTier"] == "P1"
+    assert product_x_source["configJson"]["fetchMode"] == "user_timelines"
+    assert product_x_source["configJson"]["handles"]
     low_priority_x_source = next(source for source in payload if source["name"] == "X AI Low Priority / Noisy Accounts")
     assert low_priority_x_source["configJson"]["sourceTier"] == "P2"
     assert all(source["configJson"].get("industries") for source in payload)

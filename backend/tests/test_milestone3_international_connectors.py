@@ -87,6 +87,77 @@ def test_x_recent_search_connector_writes_raw_items_and_metrics(monkeypatch, db_
     }
 
 
+def test_x_recent_search_connector_fetches_source_library_handles_via_timelines(monkeypatch, db_session):
+    monkeypatch.setenv("X_BEARER_TOKEN", "token")
+    requests = []
+
+    def fake_get(url, **kwargs):
+        requests.append((url, kwargs))
+        assert kwargs["headers"]["Authorization"] == "Bearer token"
+        if url == "https://api.x.com/2/users/by/username/OpenAIDevs":
+            return FakeResponse({"data": {"id": "2244994945", "username": "OpenAIDevs", "name": "OpenAI Developers"}})
+        if url == "https://api.x.com/2/users/2244994945/tweets":
+            assert kwargs["params"]["exclude"] == "retweets,replies"
+            assert kwargs["params"]["max_results"] == 5
+            return FakeResponse(
+                {
+                    "data": [
+                        {
+                            "id": "100",
+                            "text": "New API tools are available",
+                            "author_id": "2244994945",
+                            "created_at": "2026-01-01T00:00:00Z",
+                            "public_metrics": {
+                                "retweet_count": 7,
+                                "reply_count": 8,
+                                "like_count": 9,
+                                "quote_count": 10,
+                            },
+                        }
+                    ],
+                    "includes": {
+                        "users": [
+                            {
+                                "id": "2244994945",
+                                "username": "OpenAIDevs",
+                                "name": "OpenAI Developers",
+                            }
+                        ]
+                    },
+                }
+            )
+        raise AssertionError(f"unexpected url: {url}")
+
+    monkeypatch.setattr("app.connectors.international.httpx.get", fake_get)
+    source = Source(
+        type="x_recent_search",
+        name="P0 / OpenAI Developers (@OpenAIDevs)",
+        config_json={"handle": "OpenAIDevs", "query": "from:OpenAIDevs", "limit": 5, "perHandleLimit": 5, "retryAttempts": 1},
+    )
+    db_session.add(source)
+    db_session.commit()
+
+    run = run_source_fetch(db_session, source)
+    db_session.refresh(source)
+
+    assert run.status == "success"
+    assert run.items_created == 1
+    assert source.config_json["lastXFetchMode"] == "user_timelines"
+    assert source.config_json["userIdsByHandle"]["openaidevs"] == "2244994945"
+    assert source.config_json["latestTweetIdsByHandle"]["openaidevs"] == "100"
+    item = db_session.scalar(select(RawItem))
+    assert item is not None
+    assert item.author == "OpenAIDevs"
+    assert item.source_url == "https://x.com/OpenAIDevs/status/100"
+    assert len(requests) == 2
+    assert metric_values(db_session) == {
+        "x_retweets": 7,
+        "x_replies": 8,
+        "x_likes": 9,
+        "x_quotes": 10,
+    }
+
+
 def test_youtube_channel_connector_writes_raw_items_and_metrics(monkeypatch, db_session):
     monkeypatch.setenv("YOUTUBE_API_KEY", "yt-key")
 

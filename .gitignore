@@ -33,6 +33,7 @@ __pycache__/
 data/
 *.sqlite
 *.db
+*.db-journal
 
 # TypeScript incremental cache
 *.tsbuildinfo

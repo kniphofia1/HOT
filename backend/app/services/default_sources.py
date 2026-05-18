@@ -927,6 +927,7 @@ def _x_config(source_group: str, topics: list[str], handles: list[str], **extra:
         "query": query,
         "limit": 50,
         "pageLimit": 2,
+        "fetchMode": "user_timelines",
         "lookbackHours": 24,
         "bearerTokenEnv": "X_BEARER_TOKEN",
         "requiresCredential": True,
