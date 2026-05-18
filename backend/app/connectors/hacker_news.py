@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import httpx
 from sqlalchemy.orm import Session
 
@@ -43,6 +45,7 @@ class HackerNewsConnector(BaseConnector):
                     title=title,
                     content_text=story.get("text"),
                     author=story.get("by"),
+                    published_at=_hn_time(story.get("time")),
                     raw_payload_json=story,
                     content_hash=stable_hash("hn", story_id, title, url),
                     metrics=[
@@ -53,3 +56,10 @@ class HackerNewsConnector(BaseConnector):
             )
 
         return ConnectorFetchResult(items=items)
+
+
+def _hn_time(value: object) -> datetime | None:
+    try:
+        return datetime.fromtimestamp(int(value), tz=timezone.utc)
+    except (TypeError, ValueError, OSError):
+        return None

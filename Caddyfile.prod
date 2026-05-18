@@ -1,0 +1,12 @@
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	@api path /api/*
+	reverse_proxy @api backend:8000
+
+	reverse_proxy frontend:3000
+}

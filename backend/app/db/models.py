@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -134,6 +134,18 @@ class EventCluster(Base, TimestampMixin):
     confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    event_phase: Mapped[str | None] = mapped_column(String(32))
+    credibility_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    propagation_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    primary_industry: Mapped[str | None] = mapped_column(String(64), index=True)
+    related_industries_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    industry_confidence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    industry_reason: Mapped[str | None] = mapped_column(Text)
+    industry_classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    impact_domains_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    entities_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    historical_matches_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    intelligence_reason_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
 
 class Evidence(Base):
@@ -187,7 +199,299 @@ class BriefExport(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     template_id: Mapped[str] = mapped_column(ForeignKey("brief_templates.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    brief_type: Mapped[str | None] = mapped_column(String(64), default="intelligence_brief")
+    scope_type: Mapped[str] = mapped_column(String(64), nullable=False, default="manual", index=True)
+    scope_key: Mapped[str] = mapped_column(String(128), nullable=False, default="manual", index=True)
+    report_date: Mapped[date | None] = mapped_column(Date, index=True)
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
     event_cluster_ids_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     manual_notes_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    export_formats_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    delivery_targets_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     markdown: Mapped[str] = mapped_column(Text, nullable=False)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class BriefDelivery(Base):
+    __tablename__ = "brief_deliveries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    export_id: Mapped[str] = mapped_column(ForeignKey("brief_exports.id"), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_label: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AutomationSchedule(Base, TimestampMixin):
+    __tablename__ = "automation_schedules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Asia/Shanghai")
+    run_time: Mapped[str | None] = mapped_column(String(16))
+    cadence_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    config_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+
+class AutomationRunLog(Base):
+    __tablename__ = "automation_run_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text)
+
+
+class FeedbackEntry(Base):
+    __tablename__ = "feedback_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    contact: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="new", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+
+
+class TeamUser(Base, TimestampMixin):
+    __tablename__ = "team_users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), index=True)
+    role: Mapped[str] = mapped_column(String(64), nullable=False, default="analyst")
+
+
+class TeamSpace(Base, TimestampMixin):
+    __tablename__ = "team_spaces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+
+
+class TeamMembership(Base):
+    __tablename__ = "team_memberships"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    space_id: Mapped[str] = mapped_column(ForeignKey("team_spaces.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("team_users.id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(64), nullable=False, default="member")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SourceSpaceLink(Base):
+    __tablename__ = "source_space_links"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    space_id: Mapped[str] = mapped_column(ForeignKey("team_spaces.id"), nullable=False, index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), nullable=False, index=True)
+    created_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("team_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class EventBookmark(Base):
+    __tablename__ = "event_bookmarks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    space_id: Mapped[str] = mapped_column(ForeignKey("team_spaces.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("team_users.id"), nullable=False)
+    event_cluster_id: Mapped[str] = mapped_column(ForeignKey("event_clusters.id"), nullable=False, index=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class EventAnnotation(Base, TimestampMixin):
+    __tablename__ = "event_annotations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    space_id: Mapped[str] = mapped_column(ForeignKey("team_spaces.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("team_users.id"), nullable=False)
+    event_cluster_id: Mapped[str] = mapped_column(ForeignKey("event_clusters.id"), nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+
+
+class BriefReview(Base, TimestampMixin):
+    __tablename__ = "brief_reviews"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    space_id: Mapped[str] = mapped_column(ForeignKey("team_spaces.id"), nullable=False, index=True)
+    brief_export_id: Mapped[str] = mapped_column(ForeignKey("brief_exports.id"), nullable=False, index=True)
+    requested_by_user_id: Mapped[str] = mapped_column(ForeignKey("team_users.id"), nullable=False)
+    reviewer_user_id: Mapped[str | None] = mapped_column(ForeignKey("team_users.id"))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("team_users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    detail_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class Organization(Base, TimestampMixin):
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+
+
+class OrganizationMembership(Base):
+    __tablename__ = "organization_memberships"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("team_users.id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(64), nullable=False)
+    permissions_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SubscriptionPlan(Base, TimestampMixin):
+    __tablename__ = "subscription_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    quota_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class OrganizationSubscription(Base, TimestampMixin):
+    __tablename__ = "organization_subscriptions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("subscription_plans.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class QuotaUsage(Base, TimestampMixin):
+    __tablename__ = "quota_usage"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    metric: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    limit: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class TaskQueueEntry(Base, TimestampMixin):
+    __tablename__ = "task_queue_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), index=True)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+
+class MonitoringAlertRule(Base, TimestampMixin):
+    __tablename__ = "monitoring_alert_rules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    metric: Mapped[str] = mapped_column(String(64), nullable=False)
+    threshold: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+
+
+class TenantDataScope(Base):
+    __tablename__ = "tenant_data_scopes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    access_level: Mapped[str] = mapped_column(String(32), nullable=False, default="owned")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class SaasAuditLog(Base):
+    __tablename__ = "saas_audit_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), index=True)
+    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("team_users.id"))
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    detail_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class IntelligenceAgent(Base, TimestampMixin):
+    __tablename__ = "intelligence_agents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    agent_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    scope_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    cadence_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentAlert(Base, TimestampMixin):
+    __tablename__ = "agent_alerts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("intelligence_agents.id"), nullable=False, index=True)
+    event_cluster_id: Mapped[str] = mapped_column(ForeignKey("event_clusters.id"), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    follow_up_questions_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+
+
+class AgentRunLog(Base):
+    __tablename__ = "agent_run_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("intelligence_agents.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    clusters_scanned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    alerts_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class LocalCredential(Base, TimestampMixin):
+    __tablename__ = "local_credentials"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(64))
+    environment_key: Mapped[str | None] = mapped_column(String(128))
+    secret_hint: Mapped[str | None] = mapped_column(String(64))
+    configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str | None] = mapped_column(Text)

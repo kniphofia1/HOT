@@ -9,6 +9,7 @@ from app.db.models import EventCluster, Evidence, RawItem, Source
 from app.db.session import get_db
 from app.services.clustering import ClusterRunResult, run_event_clustering
 from app.services.editorial import EditorialRunResult, edit_event_cluster, edit_event_clusters
+from app.services.industry_classifier import IndustryClassificationRunResult, classify_event_clusters
 from app.services.radar_refresh import RadarRefreshResult, refresh_all_sources
 from app.services.scoring import ScoreRunResult, recompute_hot_scores
 from app.services.translation import TranslationRunResult, translate_event_cluster, translate_event_clusters
@@ -47,6 +48,18 @@ class EventClusterRead(BaseModel):
     hot_score: int = Field(alias="hotScore")
     score_reason_json: list = Field(alias="scoreReasonJson")
     confidence: int
+    event_phase: str | None = Field(alias="eventPhase")
+    credibility_score: int = Field(alias="credibilityScore")
+    propagation_score: int = Field(alias="propagationScore")
+    primary_industry: str | None = Field(alias="primaryIndustry")
+    related_industries_json: list[str] = Field(alias="relatedIndustriesJson")
+    industry_confidence: int = Field(alias="industryConfidence")
+    industry_reason: str | None = Field(alias="industryReason")
+    industry_classified_at: datetime | None = Field(alias="industryClassifiedAt")
+    impact_domains_json: list[str] = Field(alias="impactDomainsJson")
+    entities_json: list[str] = Field(alias="entitiesJson")
+    historical_matches_json: list = Field(alias="historicalMatchesJson")
+    intelligence_reason_json: list = Field(alias="intelligenceReasonJson")
     first_seen_at: datetime | None = Field(alias="firstSeenAt")
     last_seen_at: datetime | None = Field(alias="lastSeenAt")
     evidence_count: int = Field(alias="evidenceCount")
@@ -68,6 +81,8 @@ class EvidenceRead(BaseModel):
     confidence: int
     raw_title: str = Field(alias="rawTitle")
     raw_content_text: str | None = Field(alias="rawContentText")
+    raw_published_at: datetime | None = Field(alias="rawPublishedAt")
+    raw_fetched_at: datetime = Field(alias="rawFetchedAt")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -85,6 +100,16 @@ class ScoreRunRead(BaseModel):
 class TranslationRunRead(BaseModel):
     status: str
     clusters_translated: int = Field(alias="clustersTranslated")
+    clusters_skipped: int = Field(alias="clustersSkipped")
+    ai_runs_created: int = Field(alias="aiRunsCreated")
+    errors: list[str]
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class IndustryClassificationRunRead(BaseModel):
+    status: str
+    clusters_classified: int = Field(alias="clustersClassified")
     clusters_skipped: int = Field(alias="clustersSkipped")
     ai_runs_created: int = Field(alias="aiRunsCreated")
     errors: list[str]
@@ -115,6 +140,8 @@ class FullRefreshRead(BaseModel):
     status: str
     fetch_runs: list[FetchRunSummaryRead] = Field(alias="fetchRuns")
     clustering: ClusterRunRead
+    classification: IndustryClassificationRunRead
+    translation: TranslationRunRead
     editorial: EditorialRunRead
     scoring: ScoreRunRead
     errors: list[str]
@@ -130,6 +157,15 @@ def run_clustering(limit: int = 100, db: Session = Depends(get_db)) -> ClusterRu
 @router.post("/score", response_model=ScoreRunRead)
 def score_clusters(db: Session = Depends(get_db)) -> ScoreRunResult:
     return recompute_hot_scores(db)
+
+
+@router.post("/classify", response_model=IndustryClassificationRunRead)
+def classify_clusters(
+    force: bool = False,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> IndustryClassificationRunResult:
+    return classify_event_clusters(db, force=force, limit=limit)
 
 
 @router.post("/editorial", response_model=EditorialRunRead)
@@ -238,6 +274,8 @@ def get_cluster(cluster_id: str, db: Session = Depends(get_db)) -> dict:
             "confidence": evidence.confidence,
             "rawTitle": raw_item.title,
             "rawContentText": raw_item.content_text,
+            "rawPublishedAt": raw_item.published_at,
+            "rawFetchedAt": raw_item.fetched_at,
         }
         for evidence, raw_item in evidence_rows
     ]
@@ -280,6 +318,18 @@ def _cluster_read(db: Session, cluster: EventCluster) -> dict:
         "hotScore": cluster.hot_score,
         "scoreReasonJson": cluster.score_reason_json,
         "confidence": cluster.confidence,
+        "eventPhase": cluster.event_phase,
+        "credibilityScore": cluster.credibility_score,
+        "propagationScore": cluster.propagation_score,
+        "primaryIndustry": cluster.primary_industry,
+        "relatedIndustriesJson": cluster.related_industries_json,
+        "industryConfidence": cluster.industry_confidence,
+        "industryReason": cluster.industry_reason,
+        "industryClassifiedAt": cluster.industry_classified_at,
+        "impactDomainsJson": cluster.impact_domains_json,
+        "entitiesJson": cluster.entities_json,
+        "historicalMatchesJson": cluster.historical_matches_json,
+        "intelligenceReasonJson": cluster.intelligence_reason_json,
         "firstSeenAt": cluster.first_seen_at,
         "lastSeenAt": cluster.last_seen_at,
         "evidenceCount": evidence_count or 0,

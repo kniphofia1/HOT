@@ -16,6 +16,7 @@ from app.services.ai import (
     build_ai_provider,
 )
 from app.services.candidates import ensure_missing_event_candidates
+from app.services.event_intelligence import apply_event_intelligence
 from app.services.scoring import calculate_hot_score
 
 
@@ -95,7 +96,16 @@ def run_event_clustering(
             cluster_evidence = list(
                 db.scalars(select(Evidence).where(Evidence.event_cluster_id == cluster.id)).all()
             )
-            cluster.hot_score, cluster.score_reason_json = calculate_hot_score(db, cluster, cluster_evidence)
+            apply_event_intelligence(db, cluster, cluster_evidence)
+            cluster_raw_ids = [evidence.raw_item_id for evidence in cluster_evidence]
+            cluster_raw_items = list(db.scalars(select(RawItem).where(RawItem.id.in_(cluster_raw_ids))).all())
+            cluster_source_ids = {raw_item.source_id for raw_item in cluster_raw_items}
+            cluster_sources = list(db.scalars(select(Source).where(Source.id.in_(cluster_source_ids))).all())
+            cluster.hot_score, cluster.score_reason_json = calculate_hot_score(
+                cluster,
+                cluster_raw_items,
+                {source.id: source for source in cluster_sources},
+            )
             db.add(cluster)
 
             _record_ai_run(
@@ -107,6 +117,7 @@ def run_event_clustering(
                 error_message=None,
             )
             result.ai_runs_created += 1
+            db.commit()
         except Exception as exc:  # noqa: BLE001 - per-bucket AI failures must not destroy candidates.
             _record_ai_run(
                 db,
@@ -118,6 +129,7 @@ def run_event_clustering(
             )
             result.ai_runs_created += 1
             result.errors.append(str(exc))
+            db.commit()
 
     db.commit()
     return result
@@ -127,9 +139,10 @@ def _load_unclustered_candidates(db: Session, limit: int) -> list[EventCandidate
     return list(
         db.scalars(
             select(EventCandidate)
+            .join(RawItem, RawItem.id == EventCandidate.raw_item_id)
             .outerjoin(Evidence, Evidence.raw_item_id == EventCandidate.raw_item_id)
             .where(Evidence.id.is_(None))
-            .order_by(EventCandidate.created_at.asc())
+            .order_by(RawItem.published_at.is_(None), RawItem.published_at.desc(), EventCandidate.created_at.desc())
             .limit(limit)
         ).all()
     )

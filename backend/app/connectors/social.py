@@ -16,7 +16,7 @@ from app.db.models import Source
 REDDIT_BASE_URL = "https://www.reddit.com"
 REDDIT_OAUTH_BASE_URL = "https://oauth.reddit.com"
 REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
-BLUESKY_PUBLIC_API_BASE = "https://public.api.bsky.app"
+BLUESKY_PUBLIC_API_BASE = "https://api.bsky.app"
 
 
 class RedditSubredditConnector(BaseConnector):

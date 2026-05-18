@@ -22,6 +22,30 @@ DEFAULT_TEMPLATES = [
         "sections_json": ["核心判断", "产业事件", "风险与观察"],
         "style_rules": "面向投研和产业跟踪，强调商业影响、竞争格局、趋势信号和风险。",
     },
+    {
+        "name": "公司竞争情报",
+        "mode": "competitive_intelligence",
+        "sections_json": ["竞争动态", "产品与技术变化", "建议动作"],
+        "style_rules": "面向公司与竞品跟踪，突出实体、影响领域、相似历史事件和可执行跟进。",
+    },
+    {
+        "name": "行业周报",
+        "mode": "industry_weekly",
+        "sections_json": ["本周主线", "关键事件", "趋势研判"],
+        "style_rules": "面向行业周度复盘，强调跨平台扩散、生命周期和趋势连续性。",
+    },
+    {
+        "name": "风险预警",
+        "mode": "risk_alert",
+        "sections_json": ["风险摘要", "触发信号", "证据链"],
+        "style_rules": "面向风险监控，优先呈现高传播、高不确定性、政策或安全相关事件。",
+    },
+    {
+        "name": "项目尽调材料",
+        "mode": "due_diligence",
+        "sections_json": ["项目背景", "外部信号", "待核实问题"],
+        "style_rules": "面向项目尽调，要求每条判断都保留来源引用和人工点评位置。",
+    },
 ]
 
 
@@ -55,6 +79,7 @@ def create_brief_export(
     event_cluster_ids: list[str],
     manual_notes: dict[str, str],
 ) -> BriefExport:
+    template = _get_template(db, template_id)
     markdown = preview_markdown(
         db,
         template_id=template_id,
@@ -65,8 +90,11 @@ def create_brief_export(
     export = BriefExport(
         template_id=template_id,
         title=title,
+        brief_type=template.mode,
         event_cluster_ids_json=event_cluster_ids,
         manual_notes_json=manual_notes,
+        export_formats_json=["markdown", "docx", "print_html"],
+        delivery_targets_json=[],
         markdown=markdown,
     )
     db.add(export)
@@ -110,12 +138,18 @@ def generate_markdown(
 
 def _event_markdown(index: int, cluster: EventCluster, manual_note: str) -> list[str]:
     reasons = cluster.score_reason_json or []
+    intelligence_reasons = cluster.intelligence_reason_json or []
     evidence_items = getattr(cluster, "_brief_evidence", [])
     lines = [
         f"### {index}. {_clean_line(_cluster_title(cluster))}",
         "",
         f"- 热度：{cluster.hot_score}",
         f"- 置信度：{cluster.confidence}",
+        f"- 生命周期：{cluster.event_phase or 'unknown'}",
+        f"- 可信度评分：{cluster.credibility_score}",
+        f"- 传播速度评分：{cluster.propagation_score}",
+        f"- 影响领域：{_format_list(cluster.impact_domains_json)}",
+        f"- 关键实体：{_format_list(cluster.entities_json)}",
         f"- 首次发现：{_format_datetime(cluster.first_seen_at)}",
         f"- 最近更新：{_format_datetime(cluster.last_seen_at)}",
         "",
@@ -123,9 +157,33 @@ def _event_markdown(index: int, cluster: EventCluster, manual_note: str) -> list
         "",
         _cluster_summary(cluster) or "暂无摘要。",
         "",
-        "**推荐理由**",
+        "**智能判断**",
         "",
     ]
+    if intelligence_reasons:
+        for reason in intelligence_reasons:
+            label = _clean_line(str(reason.get("label", reason.get("key", "智能项"))))
+            score = reason.get("score", 0)
+            detail = _clean_line(str(reason.get("detail", "")))
+            lines.append(f"- {label}：{score}。{detail}")
+    else:
+        lines.append("- 暂无智能判断。")
+
+    historical_matches = cluster.historical_matches_json or []
+    if historical_matches:
+        lines.extend(["", "**相似历史事件**", ""])
+        for match in historical_matches:
+            lines.append(
+                f"- {_clean_line(str(match.get('title', '历史事件')))}（相似度 {match.get('score', 0)}）"
+            )
+
+    lines.extend(
+        [
+            "",
+            "**推荐理由**",
+            "",
+        ]
+    )
     if reasons:
         for reason in reasons:
             label = _clean_line(str(reason.get("label", reason.get("key", "评分项"))))
@@ -181,6 +239,12 @@ def _format_datetime(value: datetime | None) -> str:
 
 def _clean_line(value: str) -> str:
     return " ".join(value.replace("\r", " ").replace("\n", " ").split())
+
+
+def _format_list(value: list | None) -> str:
+    if not value:
+        return "未识别"
+    return "、".join(_clean_line(str(item)) for item in value[:8])
 
 
 def _cluster_title(cluster: EventCluster) -> str:

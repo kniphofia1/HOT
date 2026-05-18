@@ -25,7 +25,7 @@ type SourceField =
   | {
       name: string;
       label: string;
-      type: "text" | "url" | "number";
+      type: "text" | "url" | "number" | "textarea";
       defaultValue?: string | number;
       placeholder?: string;
       min?: number;
@@ -40,7 +40,7 @@ type SourceField =
       options: Array<{ label: string; value: string }>;
     };
 
-const disabledSourceTypes = new Set(["restricted_social", "youtube_placeholder"]);
+const disabledSourceTypes = new Set(["restricted_social", "youtube_placeholder", "manual_link"]);
 
 const sourceCards: SourceCard[] = [
   {
@@ -111,6 +111,27 @@ const sourceCards: SourceCard[] = [
       { name: "limit", label: "Release 数", type: "number", defaultValue: 10, min: 1, max: 50 },
       { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 180, min: 5 },
       { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "sec_edgar_filings",
+    title: "SEC EDGAR Filings",
+    summary: "通过 SEC 官方公开 submissions API 跟踪公司 10-K、10-Q、8-K 等公告。",
+    presets: ["Official API", "Filings", "10-K/10-Q/8-K"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "SEC AI infrastructure filings", required: true },
+      { name: "url", label: "入口 URL", type: "url", defaultValue: "https://www.sec.gov/search-filings" },
+      {
+        name: "companiesJson",
+        label: "Companies JSON",
+        type: "textarea",
+        placeholder: "[{\"ticker\":\"NVDA\",\"name\":\"NVIDIA\",\"cik\":\"1045810\"}]",
+        required: true,
+      },
+      { name: "forms", label: "Forms", type: "text", defaultValue: "10-K,10-Q,8-K" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 30, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 360, min: 30 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 4, min: 1, max: 10 },
     ],
   },
   {
@@ -204,11 +225,120 @@ const sourceCards: SourceCard[] = [
     ],
   },
   {
+    type: "x_recent_search",
+    title: "X Recent Search",
+    summary: "通过 X 官方 recent search API 抓取公开讨论，需要付费 API 权限和 bearer token 环境变量。",
+    presets: ["Official API", "Bearer Token", "Metrics"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "X AI search", required: true },
+      { name: "query", label: "搜索语句", type: "text", placeholder: "open source AI lang:en", required: true },
+      { name: "bearerTokenEnv", label: "Token 环境变量", type: "text", defaultValue: "X_BEARER_TOKEN" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 25, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 60, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 3, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "youtube_channel",
+    title: "YouTube Channel",
+    summary: "通过 YouTube Data API 跟踪频道或关键词视频，不做网页抓取；需要 API key 和配额。",
+    presets: ["Data API", "API Key", "Quota"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "YouTube AI channel", required: true },
+      { name: "channelId", label: "Channel ID", type: "text", placeholder: "UC..." },
+      { name: "query", label: "关键词", type: "text", placeholder: "可选，频道内或全站关键词" },
+      { name: "apiKeyEnv", label: "API Key 环境变量", type: "text", defaultValue: "YOUTUBE_API_KEY" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 10, min: 1, max: 50 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 180, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "linkedin_posts",
+    title: "LinkedIn Posts",
+    summary: "通过 LinkedIn 官方 Posts API 跟踪授权主体内容，通常需要平台审核和组织授权。",
+    presets: ["Official API", "Access Token", "Reviewed"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "LinkedIn company posts", required: true },
+      { name: "authorUrn", label: "Author URN", type: "text", placeholder: "urn:li:organization:123", required: true },
+      { name: "accessTokenEnv", label: "Token 环境变量", type: "text", defaultValue: "LINKEDIN_ACCESS_TOKEN" },
+      { name: "version", label: "API Version", type: "text", defaultValue: "202602" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 20, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 240, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "tiktok_research",
+    title: "TikTok Research API",
+    summary: "通过 TikTok Research API 查询公开研究数据，需要官方授权；查询体按官方 JSON 填写。",
+    presets: ["Research API", "Access Token", "Reviewed"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "TikTok AI research", required: true },
+      { name: "queryJson", label: "Query JSON", type: "textarea", placeholder: "{\"query\":{\"and\":[{\"operation\":\"EQ\",\"field_name\":\"keyword\",\"field_values\":[\"ai\"]}]}}" },
+      { name: "accessTokenEnv", label: "Token 环境变量", type: "text", defaultValue: "TIKTOK_RESEARCH_ACCESS_TOKEN" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 20, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 240, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "telegram_updates",
+    title: "Telegram Bot Updates",
+    summary: "读取 bot 已加入并授权的频道或群更新，不处理登录态或私有页面。",
+    presets: ["Bot API", "Authorized Channel"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Telegram channel", required: true },
+      { name: "chatId", label: "Chat ID", type: "text", placeholder: "可选，用于过滤指定频道/群" },
+      { name: "botTokenEnv", label: "Bot Token 环境变量", type: "text", defaultValue: "TELEGRAM_BOT_TOKEN" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 50, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 30, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "discord_channel",
+    title: "Discord Channel",
+    summary: "读取 bot 已授权访问的指定频道消息，适合跟踪社区公告和项目讨论。",
+    presets: ["Bot API", "Authorized Channel"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Discord announcements", required: true },
+      { name: "channelId", label: "Channel ID", type: "text", required: true },
+      { name: "guildId", label: "Guild ID", type: "text", placeholder: "可选，用于生成消息链接" },
+      { name: "botTokenEnv", label: "Bot Token 环境变量", type: "text", defaultValue: "DISCORD_BOT_TOKEN" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 50, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 30, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
+    type: "slack_channel",
+    title: "Slack Channel",
+    summary: "读取 workspace 已授权范围内的 conversation history，用于团队或社区信号追踪。",
+    presets: ["Workspace API", "OAuth Token"],
+    fields: [
+      { name: "name", label: "名称", type: "text", placeholder: "Slack channel", required: true },
+      { name: "channelId", label: "Channel ID", type: "text", required: true },
+      { name: "botTokenEnv", label: "Bot Token 环境变量", type: "text", defaultValue: "SLACK_BOT_TOKEN" },
+      { name: "limit", label: "数量", type: "number", defaultValue: 50, min: 1, max: 100 },
+      { name: "pollIntervalMinutes", label: "刷新分钟", type: "number", defaultValue: 30, min: 5 },
+      { name: "weight", label: "权重", type: "number", defaultValue: 2, min: 1, max: 10 },
+    ],
+  },
+  {
     type: "restricted_social",
     title: "受限社交平台",
     summary: "X、YouTube、Instagram/Facebook、TikTok 和国内平台需要单独的 API、成本与合规方案。",
     disabledReason: "当前不会抓取需要登录态、Cookie、验证码、私有页面或反爬绕过的平台。后续必须先补充 ADR 和 Connector 合规边界。",
     presets: ["X deferred", "YouTube placeholder", "国内平台 deferred"],
+    fields: [],
+  },
+  {
+    type: "manual_link",
+    title: "人工链接补录",
+    summary: "无法自动接入的平台内容通过信源市场补录，补录内容仍会进入 RawItem 和事件候选链路。",
+    disabledReason: "人工补录不执行抓取任务，可在信源市场新增链接证据。",
+    presets: ["Manual Evidence", "RawItem"],
     fields: [],
   },
   {
@@ -362,6 +492,13 @@ function SourceFieldControl({ field }: { field: SourceField }) {
             </option>
           ))}
         </select>
+      ) : field.type === "textarea" ? (
+        <textarea
+          defaultValue={field.defaultValue}
+          name={field.name}
+          placeholder={field.placeholder}
+          required={field.required}
+        />
       ) : (
         <input
           defaultValue={field.defaultValue}
@@ -391,8 +528,11 @@ function SourceInstance({ source }: { source: Source }) {
         </div>
         <small>{sourceConfigSummary(source)}</small>
         <small>
-          刷新 {source.pollIntervalMinutes} 分钟 / 权重 {source.weight} / 最近抓取{" "}
-          {formatDateTime(source.lastFetchedAt)}
+          刷新 {source.pollIntervalMinutes} 分钟 / 权重 {source.weight} / 最新内容{" "}
+          {formatDateTime(source.latestPublishedAt)}
+        </small>
+        <small>
+          最近抓取 {formatDateTime(source.lastFetchedAt)}
         </small>
         {source.lastError ? <small className="errorText">{source.lastError}</small> : null}
       </div>
@@ -451,6 +591,11 @@ function sourceConfigSummary(source: Source): string {
   if (source.type === "github_release") {
     return `${source.url || "未配置仓库"} / Release 数 ${stringFromConfig(source, "limit", "10")}`;
   }
+  if (source.type === "sec_edgar_filings") {
+    const companies = source.configJson.companies;
+    const companyCount = Array.isArray(companies) ? companies.length : 0;
+    return `SEC EDGAR / ${companyCount} 家公司 / Forms ${stringFromConfig(source, "forms", "10-K,10-Q,8-K")}`;
+  }
   if (source.type === "reddit_subreddit") {
     return `r/${stringFromConfig(source, "subreddit", "未配置")} / ${stringFromConfig(
       source,
@@ -477,6 +622,58 @@ function sourceConfigSummary(source: Source): string {
       "25",
     )}`;
   }
+  if (source.type === "x_recent_search") {
+    return `Query ${stringFromConfig(source, "query", "未配置")} / Env ${stringFromConfig(
+      source,
+      "bearerTokenEnv",
+      "X_BEARER_TOKEN",
+    )} / 数量 ${stringFromConfig(source, "limit", "25")}`;
+  }
+  if (source.type === "youtube_channel") {
+    return `Channel ${stringFromConfig(source, "channelId", "不限")} / Query ${stringFromConfig(
+      source,
+      "query",
+      "未配置",
+    )} / Env ${stringFromConfig(source, "apiKeyEnv", "YOUTUBE_API_KEY")}`;
+  }
+  if (source.type === "linkedin_posts") {
+    return `Author ${stringFromConfig(source, "authorUrn", "未配置")} / Env ${stringFromConfig(
+      source,
+      "accessTokenEnv",
+      "LINKEDIN_ACCESS_TOKEN",
+    )}`;
+  }
+  if (source.type === "tiktok_research") {
+    return `Research API / Env ${stringFromConfig(
+      source,
+      "accessTokenEnv",
+      "TIKTOK_RESEARCH_ACCESS_TOKEN",
+    )} / 数量 ${stringFromConfig(source, "limit", "20")}`;
+  }
+  if (source.type === "telegram_updates") {
+    return `Chat ${stringFromConfig(source, "chatId", "不过滤")} / Env ${stringFromConfig(
+      source,
+      "botTokenEnv",
+      "TELEGRAM_BOT_TOKEN",
+    )}`;
+  }
+  if (source.type === "discord_channel") {
+    return `Channel ${stringFromConfig(source, "channelId", "未配置")} / Guild ${stringFromConfig(
+      source,
+      "guildId",
+      "未配置",
+    )} / Env ${stringFromConfig(source, "botTokenEnv", "DISCORD_BOT_TOKEN")}`;
+  }
+  if (source.type === "slack_channel") {
+    return `Channel ${stringFromConfig(source, "channelId", "未配置")} / Env ${stringFromConfig(
+      source,
+      "botTokenEnv",
+      "SLACK_BOT_TOKEN",
+    )}`;
+  }
+  if (source.type === "manual_link") {
+    return "人工补录内容，不执行自动刷新";
+  }
   return source.url || "未配置 URL";
 }
 
@@ -501,6 +698,16 @@ function configJsonFor(type: string, formData: FormData): Record<string, unknown
   if (type === "github_release") {
     return {
       limit: numberValue(formData, "limit", 10),
+    };
+  }
+  if (type === "sec_edgar_filings") {
+    return {
+      companies: jsonArrayValue(formData, "companiesJson"),
+      forms: stringValue(formData, "forms", "10-K,10-Q,8-K")
+        .split(",")
+        .map((form) => form.trim())
+        .filter(Boolean),
+      limit: numberValue(formData, "limit", 30),
     };
   }
   if (type === "reddit_subreddit") {
@@ -533,6 +740,58 @@ function configJsonFor(type: string, formData: FormData): Record<string, unknown
       limit: numberValue(formData, "limit", 25),
     };
   }
+  if (type === "x_recent_search") {
+    return {
+      query: stringValue(formData, "query"),
+      bearerTokenEnv: stringValue(formData, "bearerTokenEnv", "X_BEARER_TOKEN"),
+      limit: numberValue(formData, "limit", 25),
+    };
+  }
+  if (type === "youtube_channel") {
+    return {
+      channelId: optionalStringValue(formData, "channelId"),
+      query: optionalStringValue(formData, "query"),
+      apiKeyEnv: stringValue(formData, "apiKeyEnv", "YOUTUBE_API_KEY"),
+      limit: numberValue(formData, "limit", 10),
+    };
+  }
+  if (type === "linkedin_posts") {
+    return {
+      authorUrn: stringValue(formData, "authorUrn"),
+      accessTokenEnv: stringValue(formData, "accessTokenEnv", "LINKEDIN_ACCESS_TOKEN"),
+      version: stringValue(formData, "version", "202602"),
+      limit: numberValue(formData, "limit", 20),
+    };
+  }
+  if (type === "tiktok_research") {
+    return {
+      queryJson: jsonObjectValue(formData, "queryJson"),
+      accessTokenEnv: stringValue(formData, "accessTokenEnv", "TIKTOK_RESEARCH_ACCESS_TOKEN"),
+      limit: numberValue(formData, "limit", 20),
+    };
+  }
+  if (type === "telegram_updates") {
+    return {
+      chatId: optionalStringValue(formData, "chatId"),
+      botTokenEnv: stringValue(formData, "botTokenEnv", "TELEGRAM_BOT_TOKEN"),
+      limit: numberValue(formData, "limit", 50),
+    };
+  }
+  if (type === "discord_channel") {
+    return {
+      channelId: stringValue(formData, "channelId"),
+      guildId: optionalStringValue(formData, "guildId"),
+      botTokenEnv: stringValue(formData, "botTokenEnv", "DISCORD_BOT_TOKEN"),
+      limit: numberValue(formData, "limit", 50),
+    };
+  }
+  if (type === "slack_channel") {
+    return {
+      channelId: stringValue(formData, "channelId"),
+      botTokenEnv: stringValue(formData, "botTokenEnv", "SLACK_BOT_TOKEN"),
+      limit: numberValue(formData, "limit", 50),
+    };
+  }
   return {};
 }
 
@@ -551,6 +810,32 @@ function stringValue(formData: FormData, key: string, fallback = ""): string {
 function optionalStringValue(formData: FormData, key: string): string | null {
   const value = stringValue(formData, key);
   return value || null;
+}
+
+function jsonObjectValue(formData: FormData, key: string): Record<string, unknown> {
+  const value = stringValue(formData, key);
+  if (!value) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function jsonArrayValue(formData: FormData, key: string): unknown[] {
+  const value = stringValue(formData, key);
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function numberValue(formData: FormData, key: string, fallback: number): number {

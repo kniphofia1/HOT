@@ -4,7 +4,18 @@
 
 当前任务 **Milestone 5：Markdown 简报导出** 已完成验收。
 
-不得实现 v0.1 之外的 PDF、Word、国内平台、X、YouTube 真实抓取、评论抽样、多租户或登录态抓取。
+本文件记录 v0.1 本地情报雷达的交付范围与验收结果。v0.1 已冻结，以下限制只适用于 v0.1 交付本身，不再阻止后续路线在独立 ADR 和任务文档约束下继续推进。
+
+后续路线以 `docs/roadmap/final-milestones.md` 为当前路线图，以 `tasks/final-milestones.md` 为当前任务入口。进入 X、YouTube、国际平台、国内平台、Word/打印 HTML、团队协作、SaaS 控制平面和 Agent 情报官时，必须遵守对应 ADR 的合规边界：
+
+- `docs/decisions/0003-international-platform-connectors.md`
+- `docs/decisions/0004-domestic-platform-compliance.md`
+- `docs/decisions/0005-brief-delivery-center.md`
+- `docs/decisions/0006-local-team-collaboration.md`
+- `docs/decisions/0007-saas-control-plane.md`
+- `docs/decisions/0008-agent-intelligence-officer.md`
+
+v0.1 内仍不得实现 v0.1 之外的 PDF、Word、国内平台、X、YouTube 真实抓取、评论抽样、多租户或登录态抓取。
 
 当前验收后补丁：**v0.1 中文翻译展示收口**，只允许为已有 `EventCluster` 增加简体中文展示缓存、翻译触发入口、Markdown 简报中文优先展示和失败降级记录，不得扩大到新平台或新导出格式。
 

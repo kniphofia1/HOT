@@ -16,6 +16,10 @@ build/
 *.log
 coverage/
 
+# Local browser inspection artifacts
+.playwright-mcp/
+/*.png
+
 # Python and tool caches
 __pycache__/
 .pytest_cache/

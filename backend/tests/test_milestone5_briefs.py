@@ -10,7 +10,14 @@ def test_default_brief_templates_are_available(client):
 
     assert response.status_code == 200
     modes = {template["mode"] for template in response.json()}
-    assert modes == {"ai_tech", "investment"}
+    assert modes == {
+        "ai_tech",
+        "investment",
+        "competitive_intelligence",
+        "industry_weekly",
+        "risk_alert",
+        "due_diligence",
+    }
 
 
 def test_create_brief_export_contains_summary_reasons_evidence_and_notes(client, db_session):

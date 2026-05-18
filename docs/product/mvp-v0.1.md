@@ -4,6 +4,8 @@
 
 v0.1 聚焦本地单机闭环。Milestone 1-5 验收后，允许增加一组公开社交媒体信源扩展，但仍然保持本地单用户、证据可追溯和 Markdown 简报交付。
 
+本文是 v0.1 范围归档文档，不再定义后续产品的唯一边界。后续路线已经迁移到 `docs/roadmap/final-milestones.md`，并由 `docs/decisions/0003-*` 到 `0008-*` 系列 ADR 约束平台接入、交付格式、团队协作、SaaS 控制平面和 Agent 情报官能力。
+
 ```text
 RSS / 指定网页 / Hacker News / GitHub repo + release watch
 验收后扩展：Reddit subreddit / Bluesky search + actor feed / Mastodon public timeline
@@ -43,7 +45,7 @@ RSS / 指定网页 / Hacker News / GitHub repo + release watch
 - `ingestion`：`RawItem` 标准化、URL canonicalize、`contentHash` 去重、生成 `EventCandidate`
 - `clustering`：候选分桶、AI 合并事件、AI 摘要、`Evidence` 绑定、`AiRunLog` 记录
 - `translation`：将已聚类事件的标题和摘要翻译为简体中文，写入 `EventCluster` 翻译缓存；失败时保留原文并记录 `AiRunLog`
-- `scoring`：计算可解释 `hotScore = recency + sourceWeight + mentionCount + velocity + aiImportance`
+- `scoring`：计算可解释 `hotScore = signalQuality + actionability + strategicImpact + sourceCredibility + propagationMomentum + freshness - qualityPenalty`
 - `briefExporter`：基于 `EventCluster`、`Evidence`、人工点评和模板生成 Markdown
 - `api`：`Source` CRUD、手动刷新、事件列表/详情、事件翻译、运行日志、简报创建/预览/下载
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.connectors.core import BaseConnector, ConnectorMetadata
 from app.connectors.types import ConnectorFetchResult, MetricPayload, RawItemPayload
-from app.connectors.utils import repo_from_url_or_config, stable_hash
+from app.connectors.utils import parse_datetime, repo_from_url_or_config, stable_hash
 from app.db.models import Source
 
 
@@ -35,6 +35,9 @@ class GithubRepoConnector(BaseConnector):
                 title=f"GitHub repo watch: {full_name}",
                 content_text=description,
                 author=owner,
+                published_at=parse_datetime(
+                    repo_payload.get("pushed_at") or repo_payload.get("updated_at") or repo_payload.get("created_at")
+                ),
                 raw_payload_json=repo_payload,
                 content_hash=stable_hash("github_repo", full_name),
                 metrics=[
@@ -73,6 +76,7 @@ class GithubReleaseConnector(BaseConnector):
                     title=f"GitHub release: {owner}/{repo} {tag_name}",
                     content_text=release.get("body"),
                     author=author.get("login"),
+                    published_at=parse_datetime(release.get("published_at") or release.get("created_at")),
                     raw_payload_json=release,
                     content_hash=stable_hash("github_release", owner, repo, release_id, tag_name),
                     metrics=[MetricPayload("github_release_downloads", download_count)],

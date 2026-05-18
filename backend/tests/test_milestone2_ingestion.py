@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pytest
 from sqlalchemy import select
 
 from app.db.models import EventCluster, Evidence
 from app.db.models import FetchRun, MetricSnapshot, RawItem, Source, WebMonitorTarget, WebpageSnapshot
-from app.services.ai import AiCandidate, AiClusterSummary, AiEditorial
+from app.services.ai import AiCandidate, AiClassification, AiClusterSummary, AiEditorial, AiTranslation
 from app.services.connector_runner import run_enabled_sources, run_source_fetch
 
 
@@ -14,6 +14,7 @@ class FakeResponse:
     payload: object | None = None
     text: str = ""
     content: bytes = b""
+    headers: dict[str, str] = field(default_factory=dict)
 
     def json(self):
         return self.payload
@@ -49,6 +50,26 @@ class FakeFullRefreshAiProvider:
             category="ai_big_news",
             tags=["AI大新闻"],
             priority=90,
+        )
+
+    def translate_event(self, *, title: str, summary: str | None) -> AiTranslation:
+        return AiTranslation(title=f"中文：{title}", summary=f"中文摘要：{summary or title}")
+
+    def classify_event(
+        self,
+        *,
+        title: str,
+        summary: str | None,
+        source_names: list[str],
+        source_industries: list[str],
+        evidence: list[dict[str, str | None]],
+    ) -> AiClassification:
+        return AiClassification(
+            industries=source_industries[:1] or ["ai"],
+            confidence=85,
+            reason="测试分类",
+            noise=False,
+            off_topic=False,
         )
 
 
@@ -136,6 +157,7 @@ def test_hacker_news_connector_writes_raw_items_and_metrics(monkeypatch, db_sess
                 "score": 42,
                 "descendants": 7,
                 "by": "tester",
+                "time": 1778400000,
             }
         )
 
@@ -154,6 +176,7 @@ def test_hacker_news_connector_writes_raw_items_and_metrics(monkeypatch, db_sess
     assert run.status == "success"
     assert run.items_created == 2
     assert len(db_session.scalars(select(RawItem)).all()) == 2
+    assert all(item.published_at is not None for item in db_session.scalars(select(RawItem)).all())
     metrics = db_session.scalars(select(MetricSnapshot)).all()
     assert {metric.metric_type for metric in metrics} == {"hn_score", "hn_comments"}
 
@@ -203,6 +226,7 @@ def test_github_repo_and_release_connectors_write_metrics(monkeypatch, db_sessio
                         "tag_name": "v1.0.0",
                         "html_url": "https://github.com/example/repo/releases/tag/v1.0.0",
                         "body": "Release body",
+                        "published_at": "2026-05-10T08:30:00Z",
                         "author": None,
                         "assets": [{"download_count": 3}, {"download_count": 4}],
                     }
@@ -216,6 +240,7 @@ def test_github_repo_and_release_connectors_write_metrics(monkeypatch, db_sessio
                 "stargazers_count": 11,
                 "forks_count": 2,
                 "open_issues_count": 1,
+                "pushed_at": "2026-05-10T08:00:00Z",
             }
         )
 
@@ -240,6 +265,8 @@ def test_github_repo_and_release_connectors_write_metrics(monkeypatch, db_sessio
 
     assert repo_run.status == "success"
     assert release_run.status == "success"
+    raw_items = db_session.scalars(select(RawItem)).all()
+    assert all(item.published_at is not None for item in raw_items)
     metrics = db_session.scalars(select(MetricSnapshot)).all()
     assert {metric.metric_type for metric in metrics} == {
         "github_stars",
@@ -257,7 +284,7 @@ def test_webpage_connector_creates_snapshot_only_when_content_changes(monkeypatc
     ]
 
     def fake_get(url, **kwargs):
-        return FakeResponse(text=pages.pop(0))
+        return FakeResponse(text=pages.pop(0), headers={"last-modified": "Sun, 10 May 2026 08:00:00 GMT"})
 
     monkeypatch.setattr("app.connectors.webpage.httpx.get", fake_get)
     source = Source(
@@ -276,6 +303,7 @@ def test_webpage_connector_creates_snapshot_only_when_content_changes(monkeypatc
     assert first_run.items_created == 1
     assert second_run.items_created == 0
     assert third_run.items_created == 1
+    assert all(item.published_at is not None for item in db_session.scalars(select(RawItem)).all())
     assert len(db_session.scalars(select(WebMonitorTarget)).all()) == 1
     assert len(db_session.scalars(select(WebpageSnapshot)).all()) == 2
     assert len(db_session.scalars(select(RawItem)).all()) == 2
@@ -328,6 +356,8 @@ def test_refresh_enabled_sources_api_isolates_failures(monkeypatch, client):
 def test_refresh_enabled_sources_api_runs_full_event_pipeline(monkeypatch, client, db_session):
     monkeypatch.setattr("app.connectors.rss.httpx.get", lambda url, **kwargs: FakeResponse(content=RSS_FEED))
     monkeypatch.setattr("app.services.clustering.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    monkeypatch.setattr("app.services.industry_classifier.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    monkeypatch.setattr("app.services.translation.build_ai_provider", lambda: FakeFullRefreshAiProvider())
     monkeypatch.setattr("app.services.editorial.build_ai_provider", lambda: FakeFullRefreshAiProvider())
     client.post(
         "/api/sources",
@@ -342,10 +372,13 @@ def test_refresh_enabled_sources_api_runs_full_event_pipeline(monkeypatch, clien
     assert payload["fetchRuns"][0]["itemsCreated"] == 1
     assert payload["clustering"]["clustersCreated"] == 1
     assert payload["clustering"]["evidenceCreated"] == 1
+    assert payload["classification"]["clustersClassified"] == 1
+    assert payload["translation"]["clustersTranslated"] == 1
     assert payload["editorial"]["clustersEdited"] == 1
     assert payload["scoring"]["clustersScored"] == 1
     cluster = db_session.scalar(select(EventCluster))
     assert cluster is not None
+    assert cluster.translated_title == "中文：First item"
     assert cluster.editorial_title == "精选：First item"
     assert db_session.scalar(select(Evidence)) is not None
 
@@ -353,6 +386,8 @@ def test_refresh_enabled_sources_api_runs_full_event_pipeline(monkeypatch, clien
 def test_refresh_single_source_api_runs_full_event_pipeline(monkeypatch, client):
     monkeypatch.setattr("app.connectors.rss.httpx.get", lambda url, **kwargs: FakeResponse(content=RSS_FEED))
     monkeypatch.setattr("app.services.clustering.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    monkeypatch.setattr("app.services.industry_classifier.build_ai_provider", lambda: FakeFullRefreshAiProvider())
+    monkeypatch.setattr("app.services.translation.build_ai_provider", lambda: FakeFullRefreshAiProvider())
     monkeypatch.setattr("app.services.editorial.build_ai_provider", lambda: FakeFullRefreshAiProvider())
     created = client.post(
         "/api/sources",
@@ -366,4 +401,6 @@ def test_refresh_single_source_api_runs_full_event_pipeline(monkeypatch, client)
     assert payload["status"] == "success"
     assert payload["fetchRuns"][0]["itemsCreated"] == 1
     assert payload["clustering"]["clustersCreated"] == 1
+    assert payload["classification"]["clustersClassified"] == 1
+    assert payload["translation"]["clustersTranslated"] == 1
     assert payload["editorial"]["clustersEdited"] == 1

@@ -50,8 +50,8 @@ export default async function BriefsPage() {
     <section className="pageStack">
       <header className="pageHeader">
         <p className="eyebrow">Briefs</p>
-        <h1>Markdown 简报</h1>
-        <p>勾选事件、选择模板、补充人工点评，然后生成可下载的 Markdown 简报。</p>
+        <h1>商业简报</h1>
+        <p>勾选事件、选择模板、补充人工点评，然后生成可下载、可归档、可交付的情报简报。</p>
       </header>
 
       {error ? <StatePanel title="无法读取简报数据" detail={error} /> : null}
@@ -98,7 +98,7 @@ export default async function BriefsPage() {
               </div>
             )}
 
-            <button type="submit">生成 Markdown 预览</button>
+            <button type="submit">生成交付简报</button>
           </form>
 
           <section className="panel">
@@ -110,7 +110,7 @@ export default async function BriefsPage() {
                 {exports.map((item) => (
                   <a className="exportLink" href={`/briefs/${item.id}`} key={item.id}>
                     <strong>{item.title}</strong>
-                    <span>{formatDateTime(item.generatedAt)}</span>
+                    <span>{formatDateTime(item.generatedAt)} / {item.exportFormatsJson.join(" / ") || "markdown"}</span>
                   </a>
                 ))}
               </div>

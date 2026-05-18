@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.connectors.utils import stable_hash
-from app.db.models import EventCandidate, RawItem
+from app.db.models import EventCandidate, RawItem, Source
+from app.services.industry_taxonomy import industry_values_from_config
 
 
 STOPWORDS = {
@@ -43,15 +44,22 @@ STOPWORDS = {
 }
 
 
-def ensure_event_candidate(db: Session, raw_item: RawItem) -> tuple[EventCandidate, bool]:
-    existing = db.scalar(select(EventCandidate).where(EventCandidate.raw_item_id == raw_item.id))
-    if existing is not None:
-        return existing, False
-
+def ensure_event_candidate(db: Session, raw_item: RawItem, source: Source | None = None) -> tuple[EventCandidate, bool]:
     normalized_title = normalize_title(raw_item.title)
     canonical_url = canonicalize_url(raw_item.source_url)
     keywords = extract_keywords(normalized_title)
-    candidate_hash = make_candidate_hash(normalized_title, canonical_url, keywords)
+    industries = _raw_item_industries(db, raw_item, source)
+    candidate_hash = make_candidate_hash(normalized_title, canonical_url, keywords, industries)
+    existing = db.scalar(select(EventCandidate).where(EventCandidate.raw_item_id == raw_item.id))
+    if existing is not None:
+        existing.normalized_title = normalized_title
+        existing.canonical_url = canonical_url
+        existing.keywords_json = keywords
+        existing.candidate_hash = candidate_hash
+        db.add(existing)
+        db.flush()
+        return existing, False
+
     candidate = EventCandidate(
         raw_item_id=raw_item.id,
         normalized_title=normalized_title,
@@ -112,12 +120,25 @@ def extract_keywords(normalized_title: str) -> list[str]:
     return keywords
 
 
-def make_candidate_hash(normalized_title: str, canonical_url: str | None, keywords: list[str]) -> str:
+def make_candidate_hash(
+    normalized_title: str,
+    canonical_url: str | None,
+    keywords: list[str],
+    industries: list[str] | None = None,
+) -> str:
+    industry_part = "+".join(sorted(industries or [])) or "general"
     if len(keywords) >= 2:
-        return stable_hash("candidate-keywords", *sorted(keywords[:6]))
+        return stable_hash("candidate-keywords", industry_part, *sorted(keywords[:6]))
     if canonical_url:
-        return stable_hash("candidate-url", canonical_url)
-    return stable_hash("candidate-title", normalized_title)
+        return stable_hash("candidate-url", industry_part, canonical_url)
+    return stable_hash("candidate-title", industry_part, normalized_title)
+
+
+def _raw_item_industries(db: Session, raw_item: RawItem, source: Source | None) -> list[str]:
+    source = source or db.get(Source, raw_item.source_id)
+    if source is None:
+        return []
+    return industry_values_from_config(source.config_json)
 
 
 def _normalize_token(token: str) -> str:

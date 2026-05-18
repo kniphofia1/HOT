@@ -14,20 +14,30 @@ def run_source_fetch(db: Session, source: Source) -> FetchRun:
     db.add(run)
     db.flush()
 
+    attempts = _retry_attempts(source)
+    errors: list[str] = []
     try:
         connector = connectors_by_type[source.type]
-        result = connector.fetch(db, source)
-        created_count = _persist_result(db, source, result)
-        run.status = "success"
-        run.items_found = len(result.items)
-        run.items_created = created_count
-        run.error_message = None
-        source.last_fetched_at = datetime.now(timezone.utc)
-        source.last_error = None
+        for attempt in range(1, attempts + 1):
+            try:
+                result = connector.fetch(db, source)
+                created_count = _persist_result(db, source, result)
+                run.status = "success"
+                run.items_found = len(result.items)
+                run.items_created = created_count
+                run.error_message = None
+                source.last_fetched_at = datetime.now(timezone.utc)
+                source.last_error = None
+                break
+            except Exception as exc:  # noqa: BLE001 - connector errors must be isolated and retried.
+                errors.append(f"attempt {attempt}: {exc}")
+                if attempt == attempts:
+                    raise
     except Exception as exc:  # noqa: BLE001 - connector errors must be isolated and recorded.
         run.status = "failed"
-        run.error_message = str(exc)
-        source.last_error = str(exc)
+        detail = errors[-1] if errors else str(exc)
+        run.error_message = detail
+        source.last_error = detail
     finally:
         run.finished_at = datetime.now(timezone.utc)
         db.add(source)
@@ -63,3 +73,12 @@ def _persist_result(db: Session, source: Source, result: ConnectorFetchResult) -
             created_count += 1
 
     return created_count
+
+
+def _retry_attempts(source: Source) -> int:
+    value = source.config_json.get("retryAttempts", 2)
+    try:
+        attempts = int(value)
+    except (TypeError, ValueError):
+        attempts = 2
+    return max(1, min(attempts, 5))

@@ -70,7 +70,7 @@ def test_reddit_subreddit_connector_writes_raw_items_and_metrics(monkeypatch, db
 
 def test_bluesky_search_connector_writes_raw_items_and_metrics(monkeypatch, db_session):
     def fake_get(url, **kwargs):
-        assert url == "https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts"
+        assert url == "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts"
         assert kwargs["params"]["q"] == "open source AI"
         return FakeResponse(
             payload={
@@ -115,7 +115,7 @@ def test_bluesky_search_connector_writes_raw_items_and_metrics(monkeypatch, db_s
 
 def test_bluesky_actor_feed_connector_writes_raw_items_and_metrics(monkeypatch, db_session):
     def fake_get(url, **kwargs):
-        assert url == "https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed"
+        assert url == "https://api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed"
         assert kwargs["params"]["actor"] == "bsky.app"
         return FakeResponse(
             payload={

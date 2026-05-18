@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.connectors.core import BaseConnector, ConnectorMetadata
 from app.connectors.types import ConnectorFetchResult, ConnectorError, RawItemPayload, WebpageSnapshotPayload
-from app.connectors.utils import stable_hash
+from app.connectors.utils import parse_datetime, stable_hash
 from app.db.models import Source, WebMonitorTarget
 
 
@@ -38,6 +38,7 @@ class WebpageConnector(BaseConnector):
         if target.last_content_hash == content_hash:
             return ConnectorFetchResult()
 
+        last_modified = getattr(response, "headers", {}).get("last-modified")
         diff_summary = _diff_summary(target.last_content_hash, content_hash)
         target.last_content_hash = content_hash
         target.last_changed_at = datetime.now(timezone.utc)
@@ -47,10 +48,12 @@ class WebpageConnector(BaseConnector):
             source_url=target.url,
             title=source.name,
             content_text=text_content,
+            published_at=parse_datetime(last_modified),
             raw_payload_json={
                 "url": target.url,
                 "cssSelector": target.css_selector,
                 "extractionMode": target.extraction_mode,
+                "lastModified": last_modified,
             },
             content_hash=content_hash,
         )
